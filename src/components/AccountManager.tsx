@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Plus, Trash2, Shield, Mail, Server, Key, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Trash2, Shield, Mail, Server, Key, CheckCircle2, AlertCircle, RefreshCw, Chrome } from 'lucide-react';
 import { motion } from 'motion/react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
@@ -18,10 +18,57 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
     provider: 'gmail',
     imapPort: 993,
     smtpPort: 465,
-    color: '#3b82f6'
+    color: '#3b82f6',
+    authType: 'password'
   });
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+        const { tokens, userInfo } = event.data;
+        handleGoogleAuthSuccess(tokens, userInfo);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const handleGoogleAuthSuccess = async (tokens: any, userInfo: any) => {
+    try {
+      const accountsRef = collection(db, 'users', user.uid, 'accounts');
+      await addDoc(accountsRef, {
+        ownerUid: user.uid,
+        email: userInfo.email,
+        label: `Gmail (${userInfo.name})`,
+        provider: 'gmail',
+        authType: 'oauth2',
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiryDate: tokens.expiry_date,
+        imapHost: 'imap.gmail.com',
+        imapPort: 993,
+        smtpHost: 'smtp.gmail.com',
+        smtpPort: 465,
+        color: '#ea4335',
+        createdAt: new Date().toISOString()
+      });
+      setIsAdding(false);
+    } catch (error) {
+      console.error("Failed to add Google account", error);
+    }
+  };
+
+  const connectWithGoogle = async () => {
+    try {
+      const response = await fetch('/api/auth/google/url');
+      const { url } = await response.json();
+      window.open(url, 'google_auth', 'width=600,height=700');
+    } catch (error) {
+      console.error("Failed to get Google auth URL", error);
+    }
+  };
 
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +85,7 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
         createdAt: new Date().toISOString()
       });
       setIsAdding(false);
-      setNewAccount({ provider: 'gmail', imapPort: 993, smtpPort: 465, color: '#3b82f6' });
+      setNewAccount({ provider: 'gmail', imapPort: 993, smtpPort: 465, color: '#3b82f6', authType: 'password' });
     } catch (error) {
       console.error("Failed to add account", error);
     }
@@ -105,6 +152,19 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
           {!isAdding ? (
             <>
               <div className="grid grid-cols-1 gap-4">
+                <button 
+                  onClick={connectWithGoogle}
+                  className="bg-white hover:bg-slate-50 text-slate-900 font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-white/5"
+                >
+                  <Chrome size={20} className="text-blue-500" />
+                  Connect with Google
+                </button>
+
+                <div className="relative py-4">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
+                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-900 px-2 text-slate-500">Or add manually</span></div>
+                </div>
+
                 {accounts.map(acc => (
                   <div key={acc.id} className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl flex items-center justify-between group">
                     <div className="flex items-center gap-4">

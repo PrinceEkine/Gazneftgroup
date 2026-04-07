@@ -15,7 +15,7 @@
     },
     "EmailAccount": {
       "title": "Email Account",
-      "description": "Configuration for a linked email account (IMAP/SMTP).",
+      "description": "Configuration for a linked email account (IMAP/SMTP or OAuth2).",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -28,6 +28,10 @@
         "smtpPort": { "type": "number" },
         "label": { "type": "string" },
         "color": { "type": "string" },
+        "authType": { "type": "string", "enum": ["password", "oauth2"] },
+        "accessToken": { "type": "string" },
+        "refreshToken": { "type": "string" },
+        "expiryDate": { "type": "number" },
         "lastSynced": { "type": "string", "format": "date-time" }
       },
       "required": ["ownerUid", "email", "provider"]
@@ -51,6 +55,20 @@
         "hasAttachments": { "type": "boolean" }
       },
       "required": ["accountId", "ownerUid", "subject", "from", "date"]
+    },
+    "EmailTemplate": {
+      "title": "Email Template",
+      "description": "Reusable email templates for a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "subject": { "type": "string" },
+        "body": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "subject", "body"]
     }
   },
   "firestore": {
@@ -65,6 +83,10 @@
     "/users/{uid}/messages/{messageId}": {
       "schema": "EmailMessage",
       "description": "Cached email messages for a user."
+    },
+    "/users/{uid}/templates/{templateId}": {
+      "schema": "EmailTemplate",
+      "description": "Reusable email templates for a user."
     }
   }
 }

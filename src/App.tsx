@@ -20,7 +20,8 @@ import {
   ArrowLeft,
   Loader2,
   Sun,
-  Moon
+  Moon,
+  ShieldCheck
 } from 'lucide-react';
 import { auth, db } from './lib/firebase';
 import { 
@@ -40,6 +41,7 @@ import { EmailAccount, EmailMessage } from './types';
 import AccountManager from './components/AccountManager';
 import InboxView from './components/InboxView';
 import ComposeModal from './components/ComposeModal';
+import DeliverabilityGuide from './components/DeliverabilityGuide';
 
 type AuthMode = 'login' | 'register' | 'forgot';
 
@@ -50,6 +52,7 @@ export default function App() {
   const [activeFolder, setActiveFolder] = useState<string>('inbox');
   const [isAccountManagerOpen, setIsAccountManagerOpen] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [isDeliverabilityGuideOpen, setIsDeliverabilityGuideOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -303,6 +306,13 @@ export default function App() {
               <NavItem icon={<Trash2 size={18} />} label="Trash" active={activeFolder === 'trash'} onClick={() => setActiveFolder('trash')} />
               <NavItem icon={<AlertCircle size={18} />} label="Spam" active={activeFolder === 'spam'} onClick={() => setActiveFolder('spam')} />
 
+              <div className="mt-8 px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Deliverability</div>
+              <NavItem 
+                icon={<ShieldCheck size={18} className="text-blue-500" />} 
+                label="Deliverability Guide" 
+                onClick={() => setIsDeliverabilityGuideOpen(true)} 
+              />
+
               <div className="mt-8 px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between">
                 <span>Accounts ({accounts.length}/20)</span>
                 <button onClick={() => setIsAccountManagerOpen(true)} className="text-blue-500 hover:text-blue-400">
@@ -405,6 +415,11 @@ export default function App() {
             accounts={accounts} 
             onClose={() => setIsComposeOpen(false)} 
             user={user}
+          />
+        )}
+        {isDeliverabilityGuideOpen && (
+          <DeliverabilityGuide 
+            onClose={() => setIsDeliverabilityGuideOpen(false)} 
           />
         )}
       </AnimatePresence>

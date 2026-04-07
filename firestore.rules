@@ -32,7 +32,11 @@ service cloud.firestore {
              data.ownerUid == request.auth.uid &&
              data.email is string &&
              data.email.size() < 256 &&
-             data.provider in ['gmail', 'outlook', 'custom'];
+             data.provider in ['gmail', 'outlook', 'custom'] &&
+             (!('authType' in data) || data.authType in ['password', 'oauth2']) &&
+             (!('accessToken' in data) || data.accessToken is string) &&
+             (!('refreshToken' in data) || data.refreshToken is string) &&
+             (!('expiryDate' in data) || data.expiryDate is number);
     }
 
     function isValidMessage(data) {
@@ -40,6 +44,13 @@ service cloud.firestore {
              data.ownerUid == request.auth.uid &&
              data.subject is string && data.subject.size() < 1000 &&
              data.from is string && data.from.size() < 256;
+    }
+
+    function isValidTemplate(data) {
+      return data.keys().hasAll(['name', 'subject', 'body']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 256 &&
+             data.subject is string && data.subject.size() < 1000 &&
+             data.body is string && data.body.size() < 50000;
     }
 
     // ===============================================================
@@ -61,6 +72,13 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidMessage(request.resource.data);
         allow update: if isOwner(userId) && isValidMessage(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /templates/{templateId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidTemplate(request.resource.data);
+        allow update: if isOwner(userId) && isValidTemplate(request.resource.data);
         allow delete: if isOwner(userId);
       }
     }

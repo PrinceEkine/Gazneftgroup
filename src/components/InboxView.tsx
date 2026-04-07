@@ -74,6 +74,9 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
             user: acc.email,
             pass: acc.password
           },
+          authType: acc.authType,
+          accessToken: acc.accessToken,
+          refreshToken: acc.refreshToken,
           folder: folder.toUpperCase(),
           limit: 20
         })

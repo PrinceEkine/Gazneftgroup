@@ -8,7 +8,11 @@ export interface EmailAccount {
   smtpPort: number;
   label: string;
   color: string;
-  password?: string; // Only stored locally/session if needed, but for this demo we'll assume it's stored in Firestore (encrypted in real world)
+  password?: string;
+  authType?: 'password' | 'oauth2';
+  accessToken?: string;
+  refreshToken?: string;
+  expiryDate?: number;
 }
 
 export interface EmailMessage {
@@ -38,4 +42,13 @@ export interface UserProfile {
   email: string;
   displayName?: string;
   photoURL?: string;
+}
+
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -22,7 +22,10 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
     authType: 'password'
   });
   const [isTesting, setIsTesting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -36,6 +39,8 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
   }, []);
 
   const handleGoogleAuthSuccess = async (tokens: any, userInfo: any) => {
+    setIsSaving(true);
+    setStatus(null);
     try {
       const accountsRef = collection(db, 'users', user.uid, 'accounts');
       await addDoc(accountsRef, {
@@ -54,9 +59,16 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
         color: '#ea4335',
         createdAt: new Date().toISOString()
       });
-      setIsAdding(false);
-    } catch (error) {
+      setStatus({ type: 'success', message: "Google account connected successfully!" });
+      setTimeout(() => {
+        setIsAdding(false);
+        setStatus(null);
+      }, 2000);
+    } catch (error: any) {
       console.error("Failed to add Google account", error);
+      setStatus({ type: 'error', message: "Failed to connect Google account: " + error.message });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -73,10 +85,12 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (accounts.length >= 20) {
-      alert("Maximum 20 accounts allowed.");
+      setStatus({ type: 'error', message: "Maximum 20 accounts allowed." });
       return;
     }
 
+    setIsSaving(true);
+    setStatus(null);
     try {
       const accountsRef = collection(db, 'users', user.uid, 'accounts');
       await addDoc(accountsRef, {
@@ -84,19 +98,29 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
         ownerUid: user.uid,
         createdAt: new Date().toISOString()
       });
-      setIsAdding(false);
-      setNewAccount({ provider: 'gmail', imapPort: 993, smtpPort: 465, color: '#3b82f6', authType: 'password' });
-    } catch (error) {
+      setStatus({ type: 'success', message: "Account saved successfully!" });
+      setTimeout(() => {
+        setIsAdding(false);
+        setStatus(null);
+        setNewAccount({ provider: 'gmail', imapPort: 993, smtpPort: 465, color: '#3b82f6', authType: 'password' });
+      }, 2000);
+    } catch (error: any) {
       console.error("Failed to add account", error);
+      setStatus({ type: 'error', message: "Failed to save account: " + error.message });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDeleteAccount = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this account?")) return;
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'accounts', id));
-    } catch (error) {
+      setConfirmDelete(null);
+      setStatus({ type: 'success', message: "Account removed successfully." });
+      setTimeout(() => setStatus(null), 3000);
+    } catch (error: any) {
       console.error("Failed to delete account", error);
+      setStatus({ type: 'error', message: "Failed to remove account: " + error.message });
     }
   };
 
@@ -154,10 +178,11 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
               <div className="grid grid-cols-1 gap-4">
                 <button 
                   onClick={connectWithGoogle}
-                  className="bg-white hover:bg-slate-50 text-slate-900 font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-white/5"
+                  disabled={isSaving}
+                  className="bg-white hover:bg-slate-50 text-slate-900 font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-white/5 disabled:opacity-50"
                 >
-                  <Chrome size={20} className="text-blue-500" />
-                  Connect with Google
+                  {isSaving ? <RefreshCw className="animate-spin text-blue-500" size={20} /> : <Chrome size={20} className="text-blue-500" />}
+                  {isSaving ? "Connecting..." : "Connect with Google"}
                 </button>
 
                 <div className="relative py-4">
@@ -176,12 +201,31 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
                         <p className="text-xs text-slate-500 uppercase tracking-wider">{acc.provider}</p>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => handleDeleteAccount(acc.id)}
-                      className="text-slate-500 hover:text-red-400 p-2 opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {confirmDelete === acc.id ? (
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleDeleteAccount(acc.id)}
+                            className="text-red-400 text-xs font-bold uppercase hover:underline"
+                          >
+                            Confirm
+                          </button>
+                          <button 
+                            onClick={() => setConfirmDelete(null)}
+                            className="text-slate-500 text-xs font-bold uppercase hover:underline"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setConfirmDelete(acc.id)}
+                          className="text-slate-500 hover:text-red-400 p-2 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {accounts.length < 20 && (
@@ -311,11 +355,23 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition-all"
+                  disabled={isSaving}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  Save Account
+                  {isSaving && <RefreshCw className="animate-spin" size={16} />}
+                  {isSaving ? "Saving..." : "Save Account"}
                 </button>
               </div>
+
+              {status && (
+                <div className={cn(
+                  "p-3 rounded-lg flex items-center gap-3 text-sm",
+                  status.type === 'success' ? "bg-green-500 text-white" : "bg-red-500 text-white"
+                )}>
+                  {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  {status.message}
+                </div>
+              )}
 
               {testResult && (
                 <div className={cn(

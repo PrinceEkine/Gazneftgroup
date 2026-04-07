@@ -517,14 +517,21 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
           )}
         </form>
 
-        {status && (
-          <div className={cn(
-            "p-4 text-center text-sm font-medium",
-            status.type === 'success' ? "bg-green-500 text-white" : "bg-red-500 text-white"
-          )}>
-            {status.message}
-          </div>
-        )}
+        <AnimatePresence>
+          {status && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className={cn(
+                "p-4 text-center text-sm font-medium",
+                status.type === 'success' ? "bg-green-500 text-white" : "bg-red-500 text-white"
+              )}
+            >
+              {status.message}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

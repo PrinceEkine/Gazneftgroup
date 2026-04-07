@@ -16,6 +16,7 @@ interface Props {
 export default function InboxView({ accountId, folder, searchQuery, accounts }: Props) {
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<EmailMessage | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
@@ -52,6 +53,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
 
   const fetchMessages = async () => {
     setLoading(true);
+    setError(null);
     try {
       // In a real app, we'd fetch from multiple accounts if accountId === 'all'
       // For this demo, we'll fetch from the first account or a mock if none
@@ -95,9 +97,12 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
         }));
 
         setMessages(prioritizedMessages);
+      } else {
+        setError(data.error || "Failed to fetch messages");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch messages", error);
+      setError(error.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -127,6 +132,20 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
             <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
               <RefreshCw className="animate-spin" size={24} />
               <p className="text-sm">Fetching your mail...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-red-500 p-8 text-center">
+              <AlertCircle size={48} className="opacity-20" />
+              <div>
+                <p className="font-medium text-red-400">Error fetching messages</p>
+                <p className="text-sm opacity-80">{error}</p>
+              </div>
+              <button 
+                onClick={fetchMessages}
+                className="mt-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-xs font-bold uppercase tracking-wider transition-all"
+              >
+                Try Again
+              </button>
             </div>
           ) : filteredMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500 p-8 text-center">

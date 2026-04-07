@@ -42,6 +42,7 @@ import AccountManager from './components/AccountManager';
 import InboxView from './components/InboxView';
 import ComposeModal from './components/ComposeModal';
 import DeliverabilityGuide from './components/DeliverabilityGuide';
+import LandingPage from './components/LandingPage';
 
 type AuthMode = 'login' | 'register' | 'forgot';
 
@@ -56,6 +57,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [showLanding, setShowLanding] = useState(true);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -138,6 +140,13 @@ export default function App() {
   const handleLogout = () => signOut(auth);
 
   if (!user) {
+    if (showLanding) {
+      return <LandingPage onGetStarted={(mode) => {
+        if (mode) setAuthMode(mode);
+        setShowLanding(false);
+      }} />;
+    }
+
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
         {/* Background Glow */}
@@ -148,6 +157,14 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl relative z-10"
         >
+          <button 
+            onClick={() => setShowLanding(true)}
+            className="absolute top-6 left-6 text-slate-500 hover:text-white transition-colors"
+            title="Back to Home"
+          >
+            <ArrowLeft size={20} />
+          </button>
+
           <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/20">
             <Mail className="text-white w-8 h-8" />
           </div>

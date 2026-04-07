@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user preferences and master profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "EmailAccount": {
+      "title": "Email Account",
+      "description": "Configuration for a linked email account (IMAP/SMTP).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "provider": { "type": "string", "enum": ["gmail", "outlook", "custom"] },
+        "imapHost": { "type": "string" },
+        "imapPort": { "type": "number" },
+        "smtpHost": { "type": "string" },
+        "smtpPort": { "type": "number" },
+        "label": { "type": "string" },
+        "color": { "type": "string" },
+        "lastSynced": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerUid", "email", "provider"]
+    },
+    "EmailMessage": {
+      "title": "Email Message",
+      "description": "Metadata and cached content for an email message.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "accountId": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "subject": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "array", "items": { "type": "string" } },
+        "date": { "type": "string", "format": "date-time" },
+        "snippet": { "type": "string" },
+        "body": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "folder": { "type": "string", "enum": ["inbox", "sent", "drafts", "trash", "spam"] },
+        "hasAttachments": { "type": "boolean" }
+      },
+      "required": ["accountId", "ownerUid", "subject", "from", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile documents."
+    },
+    "/users/{uid}/accounts/{accountId}": {
+      "schema": "EmailAccount",
+      "description": "Linked email accounts for a user."
+    },
+    "/users/{uid}/messages/{messageId}": {
+      "schema": "EmailMessage",
+      "description": "Cached email messages for a user."
+    }
+  }
+}

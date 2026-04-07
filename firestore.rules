@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.ownerUid;
+    }
+    function isUserDocOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ===============================================================
+    // Validation Functions
+    // ===============================================================
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.email.size() < 256;
+    }
+
+    function isValidAccount(data) {
+      return data.keys().hasAll(['ownerUid', 'email', 'provider']) &&
+             data.ownerUid == request.auth.uid &&
+             data.email is string &&
+             data.email.size() < 256 &&
+             data.provider in ['gmail', 'outlook', 'custom'];
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['accountId', 'ownerUid', 'subject', 'from', 'date']) &&
+             data.ownerUid == request.auth.uid &&
+             data.subject is string && data.subject.size() < 1000 &&
+             data.from is string && data.from.size() < 256;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      
+      match /accounts/{accountId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidAccount(request.resource.data);
+        allow update: if isOwner(userId) && isValidAccount(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+      
+      match /messages/{messageId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMessage(request.resource.data);
+        allow update: if isOwner(userId) && isValidMessage(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

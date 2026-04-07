@@ -18,7 +18,9 @@ import {
   Lock,
   AtSign,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { auth, db } from './lib/firebase';
 import { 
@@ -50,6 +52,15 @@ export default function App() {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   // Auth States
   const [authMode, setAuthMode] = useState<AuthMode>('login');
@@ -352,6 +363,12 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+            >
+              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <button className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all">
               <RefreshCw size={18} />
             </button>

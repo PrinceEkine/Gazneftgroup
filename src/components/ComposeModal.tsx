@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { X, Send, Paperclip, Image, Smile, MoreHorizontal, Trash2, ChevronDown } from 'lucide-react';
-import { motion } from 'motion/react';
+import React, { useState, useRef } from 'react';
+import { X, Send, Paperclip, Image, Smile, MoreHorizontal, Trash2, ChevronDown, FileText } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { EmailAccount } from '../types';
 import { cn } from '../lib/utils';
 
@@ -10,15 +10,40 @@ interface Props {
   user: any;
 }
 
+interface Attachment {
+  file: File;
+  base64: string;
+}
+
 export default function ComposeModal({ accounts, onClose, user }: Props) {
   const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setAttachments(prev => [...prev, { file, base64: base64.split(',')[1] }]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +52,6 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
     setIsSending(true);
     setStatus(null);
 
-    // Support multiple recipients separated by comma
     const recipients = to.split(',').map(r => r.trim()).filter(r => r.length > 0);
 
     try {
@@ -45,7 +69,12 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
             from: `"${selectedAccount.label}" <${selectedAccount.email}>`,
             to: recipients.join(', '),
             subject,
-            html: body.replace(/\n/g, '<br>')
+            html: body.replace(/\n/g, '<br>'),
+            attachments: attachments.map(att => ({
+              filename: att.file.name,
+              content: att.base64,
+              encoding: 'base64'
+            }))
           }
         })
       });
@@ -127,14 +156,51 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
               placeholder="Write your message here..."
               value={body}
               onChange={e => setBody(e.target.value)}
-              className="w-full h-full bg-transparent border-none text-sm text-slate-200 placeholder:text-slate-700 focus:ring-0 resize-none min-h-[300px]"
+              className="w-full h-full bg-transparent border-none text-sm text-slate-200 placeholder:text-slate-700 focus:ring-0 resize-none min-h-[200px]"
               required
             />
+
+            <AnimatePresence>
+              {attachments.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {attachments.map((att, i) => (
+                    <motion.div 
+                      key={i}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg group"
+                    >
+                      <FileText size={14} className="text-slate-500" />
+                      <span className="text-xs text-slate-300 truncate max-w-[150px]">{att.file.name}</span>
+                      <button 
+                        type="button"
+                        onClick={() => removeAttachment(i)}
+                        className="text-slate-500 hover:text-red-400 p-0.5"
+                      >
+                        <X size={14} />
+                      </button>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="p-4 border-t border-slate-800 flex items-center justify-between bg-slate-950/30">
             <div className="flex items-center gap-1">
-              <button type="button" className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                multiple 
+                className="hidden" 
+              />
+              <button 
+                type="button" 
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+              >
                 <Paperclip size={20} />
               </button>
               <button type="button" className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all">

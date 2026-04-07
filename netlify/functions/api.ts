@@ -58,6 +58,13 @@ app.post("/api/fetch-emails", async (req, res) => {
           snippet: parsed.text?.substring(0, 100),
           body: parsed.html || parsed.textAsHtml || parsed.text,
           isRead: msg.flags.has("\\Seen"),
+          attachments: parsed.attachments.map(att => ({
+            filename: att.filename,
+            contentType: att.contentType,
+            size: att.size,
+            contentId: att.contentId,
+            url: `data:${att.contentType};base64,${att.content.toString('base64')}`
+          }))
         });
       }
     } finally {

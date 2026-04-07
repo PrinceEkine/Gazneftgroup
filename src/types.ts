@@ -22,6 +22,15 @@ export interface EmailMessage {
   body: string;
   isRead: boolean;
   folder: 'inbox' | 'sent' | 'drafts' | 'trash' | 'spam';
+  priority?: 'urgent' | 'normal' | 'low';
+  smartReplies?: string[];
+  attachments?: {
+    filename: string;
+    contentType: string;
+    size: number;
+    contentId?: string;
+    url?: string;
+  }[];
 }
 
 export interface UserProfile {

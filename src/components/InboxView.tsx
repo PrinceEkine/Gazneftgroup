@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Star, Paperclip, Clock, ChevronRight, Inbox, Trash2, RefreshCw, Sparkles } from 'lucide-react';
+import { Mail, Star, Paperclip, Clock, ChevronRight, Inbox, Trash2, RefreshCw, Sparkles, AlertCircle, ArrowDown, Send, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { EmailAccount, EmailMessage } from '../types';
 import { cn } from '../lib/utils';
-import { summarizeEmail } from '../services/geminiService';
+import { summarizeEmail, detectPriority, generateSmartReplies } from '../services/geminiService';
 
 interface Props {
   accountId: string | 'all';
@@ -19,6 +19,8 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
   const [selectedMessage, setSelectedMessage] = useState<EmailMessage | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [smartReplies, setSmartReplies] = useState<string[]>([]);
+  const [isGeneratingReplies, setIsGeneratingReplies] = useState(false);
 
   useEffect(() => {
     fetchMessages();
@@ -26,6 +28,10 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
 
   useEffect(() => {
     setSummary(null);
+    setSmartReplies([]);
+    if (selectedMessage) {
+      handleGenerateReplies();
+    }
   }, [selectedMessage]);
 
   const handleSummarize = async () => {
@@ -34,6 +40,14 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
     const text = await summarizeEmail(selectedMessage.subject, selectedMessage.body);
     setSummary(text || "Could not generate summary.");
     setIsSummarizing(false);
+  };
+
+  const handleGenerateReplies = async () => {
+    if (!selectedMessage) return;
+    setIsGeneratingReplies(true);
+    const replies = await generateSmartReplies(selectedMessage.subject, selectedMessage.body);
+    setSmartReplies(replies);
+    setIsGeneratingReplies(false);
   };
 
   const fetchMessages = async () => {
@@ -66,7 +80,18 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
       });
       const data = await response.json();
       if (data.success) {
-        setMessages(data.messages.map((m: any) => ({ ...m, accountId: acc.id })));
+        const allMessages = data.messages.map((m: any) => ({ ...m, accountId: acc.id }));
+        
+        // Fetch priorities for the first 5 messages to keep it fast
+        const prioritizedMessages = await Promise.all(allMessages.map(async (msg: any, idx: number) => {
+          if (idx < 5) {
+            const priority = await detectPriority(msg.subject, msg.body);
+            return { ...msg, priority };
+          }
+          return msg;
+        }));
+
+        setMessages(prioritizedMessages);
       }
     } catch (error) {
       console.error("Failed to fetch messages", error);
@@ -121,23 +146,31 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                   )}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className={cn("text-sm font-semibold truncate flex-1", !msg.isRead ? "text-white" : "text-slate-300")}>
-                      {msg.from}
-                    </span>
+                    <div className="flex items-center gap-2 truncate flex-1">
+                      {!msg.isRead && <div className="w-2 h-2 rounded-full bg-blue-500 flex-none" />}
+                      <span className={cn("text-sm font-semibold truncate", !msg.isRead ? "text-white" : "text-slate-300")}>
+                        {msg.from}
+                      </span>
+                    </div>
                     <span className="text-[10px] text-slate-500 whitespace-nowrap ml-2">
                       {format(new Date(msg.date), 'MMM d')}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <p className={cn("text-xs truncate mb-1", !msg.isRead ? "text-slate-200 font-medium" : "text-slate-400")}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={cn("text-xs truncate mb-1 flex-1", !msg.isRead ? "text-slate-200 font-medium" : "text-slate-400")}>
                       {msg.subject}
                     </p>
-                    {msg.accountId && (
-                      <div 
-                        className="w-1.5 h-1.5 rounded-full" 
-                        style={{ backgroundColor: accounts.find(a => a.id === msg.accountId)?.color }} 
-                      />
-                    )}
+                    <div className="flex items-center gap-1 flex-none">
+                      {msg.priority === 'urgent' && <AlertCircle size={12} className="text-red-500" />}
+                      {msg.priority === 'low' && <ArrowDown size={12} className="text-slate-500" />}
+                      {msg.attachments && msg.attachments.length > 0 && <Paperclip size={12} className="text-slate-500" />}
+                      {msg.accountId && (
+                        <div 
+                          className="w-1.5 h-1.5 rounded-full" 
+                          style={{ backgroundColor: accounts.find(a => a.id === msg.accountId)?.color }} 
+                        />
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                     {msg.snippet}
@@ -209,13 +242,69 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                   <span>Received {format(new Date(selectedMessage.date), 'MMMM do, yyyy @ h:mm a')}</span>
                   <div className="flex items-center gap-2">
                     <Paperclip size={14} />
-                    <span>No Attachments</span>
+                    <span>{selectedMessage.attachments?.length || 0} Attachments</span>
                   </div>
                 </div>
+
+                {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
+                  <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {selectedMessage.attachments.map((att, i) => (
+                      <a 
+                        key={i}
+                        href={att.url}
+                        download={att.filename}
+                        className="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl hover:bg-slate-800 transition-all group"
+                      >
+                        <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-slate-500 group-hover:text-blue-400 transition-colors">
+                          <FileText size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-200 truncate">{att.filename}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">{(att.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                        <ArrowDown size={16} className="text-slate-600 group-hover:text-white transition-colors" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+
                 <div 
-                  className="prose prose-invert max-w-none text-slate-300 leading-relaxed"
+                  className="prose prose-invert max-w-none text-slate-300 leading-relaxed mb-12"
                   dangerouslySetInnerHTML={{ __html: selectedMessage.body }}
                 />
+
+                <AnimatePresence>
+                  {smartReplies.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="border-t border-slate-800 pt-8"
+                    >
+                      <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase tracking-wider mb-4">
+                        <Sparkles size={14} />
+                        Smart Replies
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {smartReplies.map((reply, i) => (
+                          <button 
+                            key={i}
+                            className="px-4 py-2 bg-slate-800 hover:bg-blue-600 hover:text-white border border-slate-700 rounded-full text-sm transition-all text-slate-300"
+                          >
+                            {reply}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                  {isGeneratingReplies && (
+                    <div className="border-t border-slate-800 pt-8">
+                      <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase tracking-wider animate-pulse">
+                        <Sparkles size={14} />
+                        Generating suggestions...
+                      </div>
+                    </div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </>

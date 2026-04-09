@@ -11,9 +11,9 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const app = express();
 app.use(express.json());
 
-// Logging middleware for debugging Netlify path issues
+// Add a middleware to log requests
 app.use((req, res, next) => {
-  console.log(`[API] ${req.method} ${req.path}`);
+  console.log(`${req.method} ${req.path}`);
   next();
 });
 
@@ -29,7 +29,6 @@ const getOAuth2Client = () => {
   );
 };
 
-// Define routes in a way that handles both /api prefix and no prefix
 const router = express.Router();
 
 router.get("/auth/google/url", (req, res) => {
@@ -61,7 +60,7 @@ router.get("/auth/google/callback", async (req, res) => {
 
     res.send(`
       <html>
-        <body style="background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
+        <body>
           <script>
             if (window.opener) {
               window.opener.postMessage({ 
@@ -74,15 +73,12 @@ router.get("/auth/google/callback", async (req, res) => {
               window.location.href = '/';
             }
           </script>
-          <div style="text-align: center;">
-            <h2 style="color: #4ade80;">Authentication Successful!</h2>
-            <p style="color: #94a3b8;">You can close this window now.</p>
-          </div>
+          <p>Authentication successful. You can close this window.</p>
         </body>
       </html>
     `);
   } catch (error: any) {
-    res.status(500).send("Authentication failed: " + error.message);
+    res.status(500).send("Authentication failed");
   }
 });
 
@@ -296,22 +292,10 @@ router.post("/test-connection", async (req, res) => {
   }
 });
 
-router.get("/health", (req, res) => {
+app.use(["/api", "/"], router);
+
+app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Mount router on both /api and / to handle different redirect behaviors
-app.use("/api", router);
-app.use("/", router);
-
-// Catch-all 404 handler that returns JSON
-app.use((req, res) => {
-  res.status(404).json({ 
-    error: "Not Found", 
-    path: req.path,
-    method: req.method,
-    message: "The requested endpoint does not exist on this function."
-  });
-});
-
-export const handler = serverless(app);
+export default app;

@@ -179,6 +179,32 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
     }
   };
 
+  const handleProviderChange = (provider: 'gmail' | 'outlook' | 'custom') => {
+    const updates: Partial<EmailAccount> = { provider };
+    
+    if (provider === 'gmail') {
+      updates.imapHost = 'imap.gmail.com';
+      updates.imapPort = 993;
+      updates.smtpHost = 'smtp.gmail.com';
+      updates.smtpPort = 465;
+      updates.color = '#ea4335';
+    } else if (provider === 'outlook') {
+      updates.imapHost = 'outlook.office365.com';
+      updates.imapPort = 993;
+      updates.smtpHost = 'smtp.office365.com';
+      updates.smtpPort = 587;
+      updates.color = '#0078d4';
+    } else {
+      updates.imapHost = '';
+      updates.imapPort = 993;
+      updates.smtpHost = '';
+      updates.smtpPort = 587;
+      updates.color = '#3b82f6';
+    }
+    
+    setNewAccount({ ...newAccount, ...updates });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
       <motion.div 
@@ -254,7 +280,7 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
                   <label className="text-xs font-semibold text-slate-500 uppercase">Provider</label>
                   <select 
                     value={newAccount.provider}
-                    onChange={e => setNewAccount({...newAccount, provider: e.target.value as any})}
+                    onChange={e => handleProviderChange(e.target.value as any)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   >
                     <option value="gmail">Gmail</option>

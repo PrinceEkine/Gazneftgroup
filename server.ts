@@ -16,28 +16,39 @@ async function startServer() {
   app.use(express.json());
 
   // Google OAuth Setup
-  const oauth2Client = new google.auth.OAuth2(
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
-    `${process.env.APP_URL}/api/auth/google/callback`
-  );
+  const getOAuth2Client = () => {
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      throw new Error("Missing Google OAuth credentials in environment variables");
+    }
+    return new google.auth.OAuth2(
+      GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET,
+      `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/google/callback`
+    );
+  };
 
   app.get("/api/auth/google/url", (req, res) => {
-    const url = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      prompt: 'consent',
-      scope: [
-        'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/userinfo.profile',
-        'https://mail.google.com/' // Full access for IMAP/SMTP
-      ]
-    });
-    res.json({ url });
+    try {
+      const oauth2Client = getOAuth2Client();
+      const url = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'consent',
+        scope: [
+          'https://www.googleapis.com/auth/userinfo.email',
+          'https://www.googleapis.com/auth/userinfo.profile',
+          'https://mail.google.com/' // Full access for IMAP/SMTP
+        ]
+      });
+      res.json({ url });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   app.get("/api/auth/google/callback", async (req, res) => {
     const { code } = req.query;
     try {
+      const oauth2Client = getOAuth2Client();
       const { tokens } = await oauth2Client.getToken(code as string);
       
       // Get user info

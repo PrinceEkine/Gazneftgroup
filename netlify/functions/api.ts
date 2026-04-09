@@ -11,29 +11,40 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const app = express();
 app.use(express.json());
 
-// Google OAuth Setup
-const oauth2Client = new google.auth.OAuth2(
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  `${process.env.APP_URL}/api/auth/google/callback`
-);
+// Helper to get OAuth2 client
+const getOAuth2Client = () => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    throw new Error("Missing Google OAuth credentials in environment variables");
+  }
+  return new google.auth.OAuth2(
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    `${process.env.APP_URL || 'https://gazneftgroup.netlify.app'}/api/auth/google/callback`
+  );
+};
 
 app.get("/auth/google/url", (req, res) => {
-  const url = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    prompt: 'consent',
-    scope: [
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/userinfo.profile',
-      'https://mail.google.com/'
-    ]
-  });
-  res.json({ url });
+  try {
+    const oauth2Client = getOAuth2Client();
+    const url = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'consent',
+      scope: [
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://mail.google.com/'
+      ]
+    });
+    res.json({ url });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get("/auth/google/callback", async (req, res) => {
   const { code } = req.query;
   try {
+    const oauth2Client = getOAuth2Client();
     const { tokens } = await oauth2Client.getToken(code as string);
     oauth2Client.setCredentials(tokens);
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
@@ -76,6 +87,9 @@ app.post("/send-email", async (req, res) => {
     };
 
     if (authType === 'oauth2') {
+      if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+        return res.status(500).json({ error: "Missing Google OAuth credentials in server environment" });
+      }
       transporterOptions.auth = {
         type: 'OAuth2',
         user: smtpConfig.user,
@@ -116,9 +130,12 @@ app.post("/fetch-emails", async (req, res) => {
 
     if (refreshToken) {
       try {
-        const client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
-        client.setCredentials({ refresh_token: refreshToken });
-        const { token } = await client.getAccessToken();
+        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+          throw new Error("Missing Google OAuth credentials");
+        }
+        const oauth2Client = getOAuth2Client();
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+        const { token } = await oauth2Client.getAccessToken();
         if (token) currentAccessToken = token;
       } catch (err) {
         console.error("Failed to refresh token for IMAP:", err);
@@ -198,9 +215,12 @@ app.post("/update-flags", async (req, res) => {
     let currentAccessToken = accessToken;
     if (refreshToken) {
       try {
-        const client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
-        client.setCredentials({ refresh_token: refreshToken });
-        const { token } = await client.getAccessToken();
+        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+          throw new Error("Missing Google OAuth credentials");
+        }
+        const oauth2Client = getOAuth2Client();
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+        const { token } = await oauth2Client.getAccessToken();
         if (token) currentAccessToken = token;
       } catch (err) {
         console.error("Failed to refresh token for IMAP Flag Update:", err);

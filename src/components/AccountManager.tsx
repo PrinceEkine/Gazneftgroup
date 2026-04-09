@@ -87,12 +87,25 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
-        console.error("Server returned non-JSON response:", text);
+        console.error("Server returned non-JSON response:", text.substring(0, 200));
         authWindow.close();
-        setStatus({ type: 'error', message: "Backend error: The server returned an invalid response. Please ensure your Netlify Functions are deployed correctly." });
+        
+        let errorMsg = "Backend error: The server returned an invalid response.";
+        if (text.includes("<!DOCTYPE html>")) {
+          errorMsg += " (Received HTML instead of JSON. This usually means the API redirect is not working on Netlify.)";
+        } else {
+          errorMsg += " (" + text.substring(0, 50) + "...)";
+        }
+        
+        setStatus({ type: 'error', message: errorMsg });
         return;
       }
-      const { url } = await response.json();
+      const { url, error } = await response.json();
+      if (error) {
+        authWindow.close();
+        setStatus({ type: 'error', message: "Backend error: " + error });
+        return;
+      }
       authWindow.location.href = url;
     } catch (error: any) {
       console.error("Failed to get Google auth URL", error);

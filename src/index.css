@@ -22,6 +22,24 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #334155;
   }
+
+  /* Email content resets to prevent style leaks */
+  .prose-invert img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  .prose-invert table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  /* Ensure the email body doesn't break layout */
+  .prose-invert * {
+    max-width: 100% !important;
+    overflow-wrap: break-word !important;
+  }
 }
 
 body {

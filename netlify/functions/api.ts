@@ -167,9 +167,11 @@ router.post("/fetch-emails", async (req, res) => {
 
   const client = new ImapFlow(imapOptions);
 
-  try {
-    await client.connect();
-    const lock = await client.getMailboxLock(folder);
+    try {
+      await client.connect();
+      // Use mailboxOpen to ensure the mailbox is selected before locking or fetching
+      await client.mailboxOpen(folder);
+      const lock = await client.getMailboxLock(folder);
       const messages = [];
       try {
         const status = await client.status(folder, { messages: true });
@@ -178,35 +180,56 @@ router.post("/fetch-emails", async (req, res) => {
         if (totalMessages > 0) {
           const start = Math.max(1, totalMessages - limit + 1);
           const range = `${start}:*`;
-          for await (const msg of client.fetch(range, { envelope: true, source: true })) {
-            const parsed = await simpleParser(msg.source);
-            messages.push({
-              uid: msg.uid,
-              subject: parsed.subject,
-              from: parsed.from?.text,
-              date: parsed.date,
-              snippet: parsed.text?.substring(0, 100),
-              body: parsed.html || parsed.textAsHtml || parsed.text,
-              isRead: msg.flags ? msg.flags.has("\\Seen") : false,
-              attachments: parsed.attachments.map(att => ({
-                filename: att.filename,
-                contentType: att.contentType,
-                size: att.size,
-                contentId: att.contentId,
-                url: `data:${att.contentType};base64,${att.content.toString('base64')}`
-              }))
-            });
+          
+          try {
+            for await (const msg of client.fetch(range, { envelope: true, source: true })) {
+              try {
+                const parsed = await simpleParser(msg.source);
+                messages.push({
+                  uid: msg.uid,
+                  subject: parsed.subject || "(No Subject)",
+                  from: parsed.from?.text || "(Unknown Sender)",
+                  date: parsed.date || new Date().toISOString(),
+                  snippet: parsed.text?.substring(0, 100) || "",
+                  body: parsed.html || parsed.textAsHtml || parsed.text || "",
+                  isRead: msg.flags ? msg.flags.has("\\Seen") : false,
+                  attachments: parsed.attachments.map(att => ({
+                    filename: att.filename || "unnamed-attachment",
+                    contentType: att.contentType,
+                    size: att.size,
+                    contentId: att.contentId,
+                    url: `data:${att.contentType};base64,${att.content.toString('base64')}`
+                  }))
+                });
+              } catch (parseError: any) {
+                console.warn(`[IMAP] Failed to parse message UID ${msg.uid}:`, parseError.message);
+                // Push a placeholder if parsing fails so the UI doesn't break
+                messages.push({
+                  uid: msg.uid,
+                  subject: "(Error parsing message)",
+                  from: "(Unknown)",
+                  date: new Date().toISOString(),
+                  snippet: "This message could not be parsed.",
+                  body: "Error parsing message content.",
+                  isRead: true
+                });
+              }
+            }
+          } catch (fetchError: any) {
+            console.error("[IMAP] Fetch command failed:", fetchError);
+            throw new Error(`IMAP Fetch failed: ${fetchError.message}`);
           }
         }
       } finally {
-      lock.release();
+        lock.release();
+      }
+      await client.logout();
+      res.json({ success: true, messages: messages.reverse() });
+    } catch (error: any) {
+      console.error("[IMAP] General Error:", error);
+      res.status(500).json({ error: `IMAP Error: ${error.message}` });
     }
-    await client.logout();
-    res.json({ success: true, messages: messages.reverse() });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
+  });
 
 // API: Update Email Flags (Mark as Read/Unread)
 router.post("/update-flags", async (req, res) => {

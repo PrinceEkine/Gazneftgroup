@@ -143,51 +143,108 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
   };
 
   const fetchMessages = async () => {
+    if (folder === 'snoozed') {
+      if (messages.length > 0) {
+        setLoading(false);
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
     try {
-      // In a real app, we'd fetch from multiple accounts if accountId === 'all'
-      // For this demo, we'll fetch from the first account or a mock if none
       const targetAccounts = accountId === 'all' ? accounts : accounts.filter(a => a.id === accountId);
       
       if (targetAccounts.length === 0) {
         setMessages([]);
+        setLoading(false);
         return;
       }
 
-      // We'll just fetch from the first one for the demo to keep it simple
-      const acc = targetAccounts[0];
-      const response = await fetch('/api/fetch-emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imapConfig: {
-            host: acc.imapHost,
-            port: acc.imapPort,
-            user: acc.email,
-            pass: acc.password
-          },
-          authType: acc.authType,
-          accessToken: acc.accessToken,
-          refreshToken: acc.refreshToken,
-          folder: folder.toUpperCase(),
-          limit: 20
-        })
+      const fetchFromAccount = async (acc: any) => {
+        // Map folder names to common IMAP paths
+        let imapFolder = folder.toUpperCase();
+        if (acc.provider === 'gmail') {
+          if (folder === 'sent') imapFolder = '[Gmail]/Sent Mail';
+          else if (folder === 'drafts') imapFolder = '[Gmail]/Drafts';
+          else if (folder === 'trash') imapFolder = '[Gmail]/Trash';
+          else if (folder === 'spam') imapFolder = '[Gmail]/Spam';
+        } else if (acc.provider === 'outlook') {
+          if (folder === 'sent') imapFolder = 'Sent';
+          else if (folder === 'drafts') imapFolder = 'Drafts';
+          else if (folder === 'trash') imapFolder = 'Deleted';
+          else if (folder === 'spam') imapFolder = 'Junk';
+        }
+
+        // If snoozed, we actually want to fetch INBOX and then filter locally
+        if (folder === 'snoozed') imapFolder = 'INBOX';
+
+        try {
+          const response = await fetch('/api/fetch-emails', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imapConfig: {
+                host: acc.imapHost,
+                port: acc.imapPort,
+                user: acc.email,
+                pass: acc.password
+              },
+              authType: acc.authType,
+              accessToken: acc.accessToken,
+              refreshToken: acc.refreshToken,
+              folder: imapFolder,
+              limit: 20
+            })
+          });
+
+          const contentType = response.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            return { success: false, error: "Server returned HTML instead of JSON" };
+          }
+
+          const data = await response.json();
+          if (data.success) {
+            return { 
+              success: true, 
+              messages: data.messages.map((m: any) => ({ 
+                ...m, 
+                id: `${acc.id}-${m.uid}`, // Ensure unique IDs across accounts
+                accountId: acc.id 
+              }))
+            };
+          } else {
+            return { success: false, error: data.error || "Failed to fetch messages" };
+          }
+        } catch (err: any) {
+          return { success: false, error: err.message };
+        }
+      };
+
+      const results = await Promise.all(targetAccounts.map(fetchFromAccount));
+      
+      const allMessages: EmailMessage[] = [];
+      const errors: string[] = [];
+
+      results.forEach((res, idx) => {
+        if (res.success) {
+          allMessages.push(...res.messages);
+        } else {
+          console.error(`Failed to fetch from ${targetAccounts[idx].email}:`, res.error);
+          errors.push(`${targetAccounts[idx].email}: ${res.error}`);
+        }
       });
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error("Non-JSON response received:", text);
-        throw new Error("Server returned HTML instead of JSON. This usually means the backend server is not running or you are on a static host like Netlify without a configured backend.");
-      }
+      if (allMessages.length === 0 && errors.length > 0) {
+        setError(`Failed to fetch messages: ${errors.join(', ')}`);
+      } else {
+        // Sort all messages by date descending
+        const sortedMessages = allMessages.sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
 
-      const data = await response.json();
-      if (data.success) {
-        const allMessages = data.messages.map((m: any) => ({ ...m, accountId: acc.id }));
-        
-        // Fetch priorities for the first 5 messages to keep it fast
-        const prioritizedMessages = await Promise.all(allMessages.map(async (msg: any, idx: number) => {
+        // Fetch priorities for the first 5 messages
+        const prioritizedMessages = await Promise.all(sortedMessages.map(async (msg, idx) => {
           if (idx < 5) {
             const priority = await detectPriority(msg.subject, msg.body);
             return { ...msg, priority };
@@ -196,8 +253,10 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
         }));
 
         setMessages(prioritizedMessages);
-      } else {
-        setError(data.error || "Failed to fetch messages");
+        if (errors.length > 0) {
+          // Optionally show a non-blocking warning if some accounts failed
+          console.warn("Some accounts failed to fetch:", errors);
+        }
       }
     } catch (error: any) {
       console.error("Failed to fetch messages", error);
@@ -229,24 +288,24 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
     <div className="flex h-full overflow-hidden">
       {/* Message List */}
       <div className={cn(
-        "flex-1 flex flex-col border-r border-slate-800 bg-slate-900/30 transition-all",
+        "flex-1 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30 transition-all",
         selectedMessage ? "hidden lg:flex lg:w-96 lg:flex-none" : "flex"
       )}>
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="font-bold text-lg capitalize">{folder}</h2>
+            <h2 className="font-bold text-lg capitalize text-slate-900 dark:text-white">{folder}</h2>
             <button 
               onClick={() => {
                 const unread = filteredMessages.filter(m => !m.isRead);
                 unread.forEach(m => toggleReadStatus(m));
               }}
-              className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-blue-400 transition-colors"
+              className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               title="Mark all as read"
             >
               Mark all read
             </button>
           </div>
-          <span className="text-xs text-slate-500 font-medium bg-slate-800 px-2 py-1 rounded-full">
+          <span className="text-xs text-slate-500 font-medium bg-slate-200 dark:bg-slate-800 px-2 py-1 rounded-full">
             {filteredMessages.length} Messages
           </span>
         </div>
@@ -280,7 +339,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
               </div>
             </div>
           ) : (
-            <div className="divide-y divide-slate-800/50">
+            <div className="divide-y divide-slate-200 dark:divide-slate-800/50">
               {filteredMessages.map(msg => (
                 <div 
                   key={`${msg.accountId}-${msg.id}`}
@@ -294,24 +353,24 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                     }
                   }}
                   className={cn(
-                    "w-full text-left p-4 hover:bg-slate-800/50 transition-all group relative cursor-pointer outline-none focus:bg-slate-800/70",
+                    "w-full text-left p-4 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all group relative cursor-pointer outline-none focus:bg-slate-200/70 dark:focus:bg-slate-800/70",
                     selectedMessage?.id === msg.id && "bg-blue-600/10 border-l-2 border-blue-500",
-                    !msg.isRead && "bg-slate-800/20"
+                    !msg.isRead && "bg-blue-50/50 dark:bg-slate-800/20"
                   )}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2 truncate flex-1">
                       {!msg.isRead && <div className="w-2 h-2 rounded-full bg-blue-500 flex-none shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
-                      <span className={cn("text-sm truncate transition-colors", !msg.isRead ? "text-white font-bold" : "text-slate-400 font-medium")}>
+                      <span className={cn("text-sm truncate transition-colors", !msg.isRead ? "text-slate-900 dark:text-white font-bold" : "text-slate-600 dark:text-slate-400 font-medium")}>
                         {msg.from}
                       </span>
                     </div>
-                    <span className={cn("text-[10px] whitespace-nowrap ml-2 transition-colors", !msg.isRead ? "text-blue-400 font-bold" : "text-slate-500")}>
+                    <span className={cn("text-[10px] whitespace-nowrap ml-2 transition-colors", !msg.isRead ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-500")}>
                       {format(new Date(msg.date), 'MMM d')}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <p className={cn("text-xs truncate mb-1 flex-1 transition-colors", !msg.isRead ? "text-slate-100 font-semibold" : "text-slate-500")}>
+                    <p className={cn("text-xs truncate mb-1 flex-1 transition-colors", !msg.isRead ? "text-slate-800 dark:text-slate-100 font-semibold" : "text-slate-500")}>
                       {msg.subject}
                     </p>
                     <div className="flex items-center gap-1 flex-none">
@@ -320,7 +379,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                           e.stopPropagation();
                           toggleReadStatus(msg);
                         }}
-                        className="p-1.5 text-slate-500 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all"
+                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all"
                         title={msg.isRead ? "Mark as unread" : "Mark as read"}
                       >
                         {msg.isRead ? <Mail size={14} /> : <MailOpen size={14} />}
@@ -330,7 +389,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                           e.stopPropagation();
                           setShowSnoozeModal(msg.id);
                         }}
-                        className="p-1.5 text-slate-500 hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-all"
+                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-yellow-600 dark:hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-all"
                         title="Snooze"
                       >
                         <Clock size={14} />
@@ -346,7 +405,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-500 line-clamp-2 leading-relaxed">
                     {msg.snippet}
                   </p>
                 </div>
@@ -358,21 +417,21 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
 
       {/* Message Detail */}
       <div className={cn(
-        "flex-1 bg-slate-950 flex flex-col min-w-0",
-        !selectedMessage && "hidden lg:flex items-center justify-center text-slate-600"
+        "flex-1 bg-white dark:bg-slate-950 flex flex-col min-w-0",
+        !selectedMessage && "hidden lg:flex items-center justify-center text-slate-400 dark:text-slate-600"
       )}>
         {selectedMessage ? (
           <>
-            <header className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-950/50 backdrop-blur-xl sticky top-0 z-10">
+            <header className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-950/50 backdrop-blur-xl sticky top-0 z-10">
               <div className="flex items-center gap-4">
-                <button onClick={() => setSelectedMessage(null)} className="lg:hidden text-slate-400 hover:text-white">
+                <button onClick={() => setSelectedMessage(null)} className="lg:hidden text-slate-400 hover:text-slate-600 dark:hover:text-white">
                   <ChevronRight className="rotate-180" size={20} />
                 </button>
                 <div>
-                  <h2 className="text-xl font-bold text-white mb-1">{selectedMessage.subject}</h2>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">{selectedMessage.subject}</h2>
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="text-slate-400">From:</span>
-                    <span className="text-blue-400 font-medium">{selectedMessage.from}</span>
+                    <span className="text-slate-500">From:</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-medium">{selectedMessage.from}</span>
                   </div>
                 </div>
               </div>
@@ -380,7 +439,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                 <button 
                   onClick={handleSummarize}
                   disabled={isSummarizing}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 rounded-lg transition-all text-sm font-medium"
+                  className="flex items-center gap-2 px-3 py-2 bg-blue-600/10 text-blue-600 dark:text-blue-400 hover:bg-blue-600/20 rounded-lg transition-all text-sm font-medium"
                 >
                   <Sparkles size={16} className={cn(isSummarizing && "animate-pulse")} />
                   {isSummarizing ? "Summarizing..." : "Summarize"}
@@ -388,28 +447,28 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                 <button 
                   onClick={() => toggleReadStatus(selectedMessage)}
                   disabled={isUpdatingFlags}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
                   title={selectedMessage.isRead ? "Mark as unread" : "Mark as read"}
                 >
                   {selectedMessage.isRead ? <Mail size={18} /> : <MailOpen size={18} />}
                 </button>
                 <button 
                   onClick={() => setShowSnoozeModal(selectedMessage.id)}
-                  className="p-2 text-slate-400 hover:text-yellow-400 hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-500 dark:text-slate-400 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
                   title="Snooze"
                 >
                   <Clock size={18} />
                 </button>
-                <button className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all">
+                <button className="p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all">
                   <Star size={18} />
                 </button>
-                <button className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
+                <button className="p-2 text-slate-500 dark:text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">
                   <Trash2 size={18} />
                 </button>
               </div>
             </header>
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-              <div className="max-w-4xl mx-auto">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div className="p-8 max-w-4xl mx-auto">
                 <AnimatePresence>
                   {summary && (
                     <motion.div 
@@ -417,17 +476,17 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                       animate={{ opacity: 1, y: 0 }}
                       className="mb-8 p-4 bg-blue-600/5 border border-blue-500/20 rounded-xl"
                     >
-                      <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase tracking-wider mb-2">
+                      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider mb-2">
                         <Sparkles size={14} />
                         AI Summary
                       </div>
-                      <p className="text-sm text-slate-300 italic leading-relaxed">
+                      <p className="text-sm text-slate-700 dark:text-slate-300 italic leading-relaxed">
                         "{summary}"
                       </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <div className="flex items-center justify-between mb-8 text-xs text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-4">
+                <div className="flex items-center justify-between mb-8 text-xs text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-slate-800 pb-4">
                   <span>Received {format(new Date(selectedMessage.date), 'MMMM do, yyyy @ h:mm a')}</span>
                   <div className="flex items-center gap-2">
                     <Paperclip size={14} />
@@ -442,23 +501,23 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                         key={i}
                         href={att.url}
                         download={att.filename}
-                        className="flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl hover:bg-slate-800 transition-all group"
+                        className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all group"
                       >
-                        <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-slate-500 group-hover:text-blue-400 transition-colors">
+                        <div className="w-10 h-10 bg-slate-200 dark:bg-slate-900 rounded-lg flex items-center justify-center text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                           <FileText size={20} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-200 truncate">{att.filename}</p>
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-200 truncate">{att.filename}</p>
                           <p className="text-[10px] text-slate-500 uppercase">{(att.size / 1024).toFixed(1)} KB</p>
                         </div>
-                        <ArrowDown size={16} className="text-slate-600 group-hover:text-white transition-colors" />
+                        <ArrowDown size={16} className="text-slate-400 dark:text-slate-600 group-hover:text-slate-900 dark:group-hover:text-white transition-colors" />
                       </a>
                     ))}
                   </div>
                 )}
 
                 <div 
-                  className="prose prose-invert max-w-none text-slate-300 leading-relaxed mb-12"
+                  className="prose prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed mb-12 overflow-x-auto custom-scrollbar"
                   dangerouslySetInnerHTML={{ __html: selectedMessage.body }}
                 />
 
@@ -467,9 +526,9 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                     <motion.div 
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="border-t border-slate-800 pt-8"
+                      className="border-t border-slate-200 dark:border-slate-800 pt-8"
                     >
-                      <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase tracking-wider mb-4">
+                      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider mb-4">
                         <Sparkles size={14} />
                         Smart Replies
                       </div>
@@ -477,7 +536,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                         {smartReplies.map((reply, i) => (
                           <button 
                             key={i}
-                            className="px-4 py-2 bg-slate-800 hover:bg-blue-600 hover:text-white border border-slate-700 rounded-full text-sm transition-all text-slate-300"
+                            className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white border border-slate-200 dark:border-slate-700 rounded-full text-sm transition-all text-slate-700 dark:text-slate-300"
                           >
                             {reply}
                           </button>
@@ -486,7 +545,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                     </motion.div>
                   )}
                   {isGeneratingReplies && (
-                    <div className="border-t border-slate-800 pt-8">
+                    <div className="border-t border-slate-200 dark:border-slate-800 pt-8">
                       <div className="flex items-center gap-2 text-slate-500 text-xs font-bold uppercase tracking-wider animate-pulse">
                         <Sparkles size={14} />
                         Generating suggestions...
@@ -499,10 +558,10 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
           </>
         ) : (
           <div className="text-center space-y-4">
-            <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center mx-auto border border-slate-800">
-              <Mail size={32} className="text-slate-700" />
+            <div className="w-20 h-20 bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center mx-auto border border-slate-200 dark:border-slate-800">
+              <Mail size={32} className="text-slate-400 dark:text-slate-700" />
             </div>
-            <p className="text-lg font-medium text-slate-500">Select a message to read</p>
+            <p className="text-lg font-medium text-slate-400 dark:text-slate-500">Select a message to read</p>
           </div>
         )}
       </div>
@@ -515,14 +574,14 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xs overflow-hidden shadow-2xl"
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-xs overflow-hidden shadow-2xl"
             >
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                <h3 className="font-bold text-white flex items-center gap-2">
-                  <Clock size={16} className="text-yellow-500" />
+              <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/50">
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Clock size={16} className="text-yellow-600 dark:text-yellow-500" />
                   Snooze until...
                 </h3>
-                <button onClick={() => setShowSnoozeModal(null)} className="text-slate-500 hover:text-white">
+                <button onClick={() => setShowSnoozeModal(null)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                   <X size={18} />
                 </button>
               </div>
@@ -536,15 +595,15 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                   <button 
                     key={i}
                     onClick={() => handleSnooze(showSnoozeModal, option.label)}
-                    className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-800 transition-colors group"
+                    className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="text-slate-500 group-hover:text-yellow-500 transition-colors">
+                      <div className="text-slate-400 dark:text-slate-500 group-hover:text-yellow-600 dark:group-hover:text-yellow-500 transition-colors">
                         {option.icon}
                       </div>
-                      <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{option.label}</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{option.label}</span>
                     </div>
-                    <span className="text-[10px] text-slate-600 uppercase font-bold">{option.time}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-600 uppercase font-bold">{option.time}</span>
                   </button>
                 ))}
               </div>

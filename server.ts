@@ -175,38 +175,93 @@ async function startServer() {
 
     try {
       await client.connect();
-      const lock = await client.getMailboxLock(folder);
+      
+      // Try to open the requested folder
+      let targetFolder = folder;
+      try {
+        await client.mailboxOpen(targetFolder);
+      } catch (openError) {
+        console.warn(`[IMAP] Failed to open folder "${targetFolder}", trying to find a match...`);
+        const mailboxes = await client.list();
+        
+        // Helper to find a mailbox by fuzzy name
+        const findMailbox = (name: string) => {
+          const lowerName = name.toLowerCase();
+          return mailboxes.find(m => 
+            m.path.toLowerCase() === lowerName || 
+            m.name.toLowerCase() === lowerName ||
+            m.path.toLowerCase().includes(lowerName)
+          );
+        };
+
+        let match = null;
+        if (folder.toUpperCase() === 'SENT') match = findMailbox('sent');
+        else if (folder.toUpperCase() === 'DRAFTS') match = findMailbox('drafts');
+        else if (folder.toUpperCase() === 'TRASH' || folder.toUpperCase() === 'DELETED') match = findMailbox('trash') || findMailbox('deleted');
+        else if (folder.toUpperCase() === 'SPAM' || folder.toUpperCase() === 'JUNK') match = findMailbox('spam') || findMailbox('junk');
+        
+        if (match) {
+          targetFolder = match.path;
+          console.log(`[IMAP] Found matching folder: ${targetFolder}`);
+          await client.mailboxOpen(targetFolder);
+        } else {
+          // Fallback to INBOX if nothing found and it's not a standard folder
+          console.warn(`[IMAP] No match found for "${folder}", falling back to INBOX`);
+          targetFolder = 'INBOX';
+          await client.mailboxOpen(targetFolder);
+        }
+      }
+
+      const lock = await client.getMailboxLock(targetFolder);
       
       const messages = [];
       try {
         // Fetch last 'limit' messages using sequence range
-        const status = await client.status(folder, { messages: true });
+        const status = await client.status(targetFolder, { messages: true });
         const totalMessages = status.messages || 0;
         
         if (totalMessages > 0) {
           const start = Math.max(1, totalMessages - limit + 1);
           const range = `${start}:*`;
 
-          for await (const msg of client.fetch(range, { envelope: true, source: true })) {
-            const parsed = await simpleParser(msg.source);
-            messages.push({
-              uid: msg.uid,
-              seq: msg.seq,
-              subject: parsed.subject,
-              from: parsed.from?.text,
-              to: parsed.to?.text,
-              date: parsed.date,
-              snippet: parsed.text?.substring(0, 100),
-              body: parsed.html || parsed.textAsHtml || parsed.text,
-              isRead: msg.flags ? msg.flags.has("\\Seen") : false,
-              attachments: parsed.attachments.map(att => ({
-                filename: att.filename,
-                contentType: att.contentType,
-                size: att.size,
-                contentId: att.contentId,
-                url: `data:${att.contentType};base64,${att.content.toString('base64')}`
-              }))
-            });
+          try {
+            for await (const msg of client.fetch(range, { envelope: true, source: true })) {
+              try {
+                const parsed = await simpleParser(msg.source);
+                messages.push({
+                  uid: msg.uid,
+                  seq: msg.seq,
+                  subject: parsed.subject || "(No Subject)",
+                  from: parsed.from?.text || "(Unknown Sender)",
+                  to: parsed.to?.text,
+                  date: parsed.date || new Date().toISOString(),
+                  snippet: parsed.text?.substring(0, 100) || "",
+                  body: parsed.html || parsed.textAsHtml || parsed.text || "",
+                  isRead: msg.flags ? msg.flags.has("\\Seen") : false,
+                  attachments: parsed.attachments.map(att => ({
+                    filename: att.filename || "unnamed-attachment",
+                    contentType: att.contentType,
+                    size: att.size,
+                    contentId: att.contentId,
+                    url: `data:${att.contentType};base64,${att.content.toString('base64')}`
+                  }))
+                });
+              } catch (parseError: any) {
+                console.warn(`[IMAP] Failed to parse message UID ${msg.uid}:`, parseError.message);
+                messages.push({
+                  uid: msg.uid,
+                  subject: "(Error parsing message)",
+                  from: "(Unknown)",
+                  date: new Date().toISOString(),
+                  snippet: "This message could not be parsed.",
+                  body: "Error parsing message content.",
+                  isRead: true
+                });
+              }
+            }
+          } catch (fetchError: any) {
+            console.error("[IMAP] Fetch command failed:", fetchError);
+            throw new Error(`IMAP Fetch failed: ${fetchError.message}`);
           }
         }
       } finally {
@@ -217,7 +272,7 @@ async function startServer() {
       res.json({ success: true, messages: messages.reverse() });
     } catch (error: any) {
       console.error("IMAP Error:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: `IMAP Error: ${error.message}` });
     }
   });
 

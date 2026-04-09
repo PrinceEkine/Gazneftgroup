@@ -73,19 +73,30 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
   };
 
   const connectWithGoogle = async () => {
+    // Open the window immediately to avoid popup blockers
+    const authWindow = window.open('about:blank', 'google_auth', 'width=600,height=700');
+    if (!authWindow) {
+      setStatus({ type: 'error', message: "Popup blocked! Please allow popups for this site to connect your Google account." });
+      return;
+    }
+    
+    authWindow.document.write('<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#0f172a;color:white;"><div>Connecting to Google...</div></body></html>');
+
     try {
       const response = await fetch('/api/auth/google/url');
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
         console.error("Server returned non-JSON response:", text);
+        authWindow.close();
         setStatus({ type: 'error', message: "Backend error: The server returned an invalid response. Please ensure your Netlify Functions are deployed correctly." });
         return;
       }
       const { url } = await response.json();
-      window.open(url, 'google_auth', 'width=600,height=700');
+      authWindow.location.href = url;
     } catch (error: any) {
       console.error("Failed to get Google auth URL", error);
+      authWindow.close();
       setStatus({ type: 'error', message: "Failed to connect to backend: " + error.message });
     }
   };
@@ -360,16 +371,6 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
                 </button>
               </div>
 
-              {status && (
-                <div className={cn(
-                  "p-3 rounded-lg flex items-center gap-3 text-sm",
-                  status.type === 'success' ? "bg-green-500 text-white" : "bg-red-500 text-white"
-                )}>
-                  {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                  {status.message}
-                </div>
-              )}
-
               {testResult && (
                 <div className={cn(
                   "p-3 rounded-lg flex items-center gap-3 text-sm",
@@ -388,6 +389,16 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
                 Cancel
               </button>
             </form>
+          )}
+
+          {status && (
+            <div className={cn(
+              "p-3 rounded-lg flex items-center gap-3 text-sm mt-4",
+              status.type === 'success' ? "bg-green-500 text-white" : "bg-red-500 text-white"
+            )}>
+              {status.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+              {status.message}
+            </div>
           )}
         </div>
 

@@ -4,9 +4,13 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import serverless from "serverless-http";
 import { google } from "googleapis";
+import axios from "axios";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
+const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;
 
 const app = express();
 app.use(express.json());
@@ -86,6 +90,84 @@ router.get("/auth/google/callback", async (req, res) => {
   }
 });
 
+// Microsoft OAuth Setup
+router.get("/auth/microsoft/url", (req, res) => {
+  try {
+    if (!MICROSOFT_CLIENT_ID) {
+      throw new Error("Missing MICROSOFT_CLIENT_ID in environment");
+    }
+    const redirectUri = `${process.env.APP_URL || 'https://gazneftgroup.netlify.app'}/api/auth/microsoft/callback`;
+    const scopes = [
+      'openid',
+      'profile',
+      'email',
+      'offline_access',
+      'https://outlook.office365.com/IMAP.AccessAsUser.All',
+      'https://outlook.office365.com/SMTP.Send'
+    ].join(' ');
+
+    const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${MICROSOFT_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&response_mode=query&scope=${encodeURIComponent(scopes)}&prompt=consent`;
+    res.json({ url });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/auth/microsoft/callback", async (req, res) => {
+  const { code } = req.query;
+  try {
+    const redirectUri = `${process.env.APP_URL || 'https://gazneftgroup.netlify.app'}/api/auth/microsoft/callback`;
+    
+    const tokenResponse = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', 
+      new URLSearchParams({
+        client_id: MICROSOFT_CLIENT_ID!,
+        client_secret: MICROSOFT_CLIENT_SECRET!,
+        code: code as string,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+
+    const tokens = tokenResponse.data;
+
+    const userInfoResponse = await axios.get('https://graph.microsoft.com/v1.0/me', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` }
+    });
+
+    const userInfo = userInfoResponse.data;
+
+    res.send(`
+      <html>
+        <body style="background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ 
+                type: 'MICROSOFT_AUTH_SUCCESS', 
+                tokens: ${JSON.stringify(tokens)},
+                userInfo: ${JSON.stringify({
+                  email: userInfo.mail || userInfo.userPrincipalName,
+                  name: userInfo.displayName
+                })}
+              }, '*');
+              window.close();
+            } else {
+              window.location.href = '/';
+            }
+          </script>
+          <div style="text-align: center;">
+            <h2 style="color: #4ade80;">Authentication Successful!</h2>
+            <p style="color: #94a3b8;">You can close this window now.</p>
+          </div>
+        </body>
+      </html>
+    `);
+  } catch (error: any) {
+    console.error("Microsoft OAuth Error:", error?.response?.data || error.message);
+    res.status(500).send("Authentication failed");
+  }
+});
+
 // API: Send Email (SMTP Proxy)
 router.post("/send-email", async (req, res) => {
   const { smtpConfig, mailOptions, authType, accessToken, refreshToken } = req.body;
@@ -99,16 +181,41 @@ router.post("/send-email", async (req, res) => {
     };
 
     if (authType === 'oauth2') {
-      if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-        return res.status(500).json({ error: "Missing Google OAuth credentials in server environment" });
+      let currentAccessToken = accessToken;
+      let currentClientId = GOOGLE_CLIENT_ID;
+      let currentClientSecret = GOOGLE_CLIENT_SECRET;
+
+      const isMicrosoft = smtpConfig.host.includes('office365') || smtpConfig.host.includes('outlook');
+
+      if (isMicrosoft) {
+        currentClientId = MICROSOFT_CLIENT_ID;
+        currentClientSecret = MICROSOFT_CLIENT_SECRET;
+
+        if (refreshToken) {
+          try {
+            const refreshResponse = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', 
+              new URLSearchParams({
+                client_id: MICROSOFT_CLIENT_ID!,
+                client_secret: MICROSOFT_CLIENT_SECRET!,
+                refresh_token: refreshToken,
+                grant_type: 'refresh_token',
+              }).toString(),
+              { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+            );
+            currentAccessToken = refreshResponse.data.access_token;
+          } catch (err) {
+            console.error("Failed to refresh Microsoft token for SMTP:", err);
+          }
+        }
       }
+
       transporterOptions.auth = {
         type: 'OAuth2',
         user: smtpConfig.user,
-        clientId: GOOGLE_CLIENT_ID,
-        clientSecret: GOOGLE_CLIENT_SECRET,
+        clientId: currentClientId,
+        clientSecret: currentClientSecret,
         refreshToken: refreshToken,
-        accessToken: accessToken
+        accessToken: currentAccessToken
       };
     } else {
       transporterOptions.auth = {
@@ -139,18 +246,38 @@ router.post("/fetch-emails", async (req, res) => {
 
   if (authType === 'oauth2') {
     let currentAccessToken = accessToken;
+    const isMicrosoft = imapConfig.host.includes('office365') || imapConfig.host.includes('outlook');
 
-    if (refreshToken) {
-      try {
-        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-          throw new Error("Missing Google OAuth credentials");
+    if (isMicrosoft) {
+      if (refreshToken) {
+        try {
+          const refreshResponse = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', 
+            new URLSearchParams({
+              client_id: MICROSOFT_CLIENT_ID!,
+              client_secret: MICROSOFT_CLIENT_SECRET!,
+              refresh_token: refreshToken,
+              grant_type: 'refresh_token',
+            }).toString(),
+            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+          );
+          currentAccessToken = refreshResponse.data.access_token;
+        } catch (err) {
+          console.error("Failed to refresh Microsoft token for IMAP:", err);
         }
-        const oauth2Client = getOAuth2Client();
-        oauth2Client.setCredentials({ refresh_token: refreshToken });
-        const { token } = await oauth2Client.getAccessToken();
-        if (token) currentAccessToken = token;
-      } catch (err) {
-        console.error("Failed to refresh token for IMAP:", err);
+      }
+    } else {
+      if (refreshToken) {
+        try {
+          if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+            throw new Error("Missing Google OAuth credentials");
+          }
+          const oauth2Client = getOAuth2Client();
+          oauth2Client.setCredentials({ refresh_token: refreshToken });
+          const { token } = await oauth2Client.getAccessToken();
+          if (token) currentAccessToken = token;
+        } catch (err) {
+          console.error("Failed to refresh token for IMAP:", err);
+        }
       }
     }
 
@@ -182,38 +309,20 @@ router.post("/fetch-emails", async (req, res) => {
           const range = `${start}:*`;
           
           try {
-            for await (const msg of client.fetch(range, { envelope: true, source: true })) {
-              try {
-                const parsed = await simpleParser(msg.source);
-                messages.push({
-                  uid: msg.uid,
-                  subject: parsed.subject || "(No Subject)",
-                  from: parsed.from?.text || "(Unknown Sender)",
-                  date: parsed.date || new Date().toISOString(),
-                  snippet: parsed.text?.substring(0, 100) || "",
-                  body: parsed.html || parsed.textAsHtml || parsed.text || "",
-                  isRead: msg.flags ? msg.flags.has("\\Seen") : false,
-                  attachments: parsed.attachments.map(att => ({
-                    filename: att.filename || "unnamed-attachment",
-                    contentType: att.contentType,
-                    size: att.size,
-                    contentId: att.contentId,
-                    url: `data:${att.contentType};base64,${att.content.toString('base64')}`
-                  }))
-                });
-              } catch (parseError: any) {
-                console.warn(`[IMAP] Failed to parse message UID ${msg.uid}:`, parseError.message);
-                // Push a placeholder if parsing fails so the UI doesn't break
-                messages.push({
-                  uid: msg.uid,
-                  subject: "(Error parsing message)",
-                  from: "(Unknown)",
-                  date: new Date().toISOString(),
-                  snippet: "This message could not be parsed.",
-                  body: "Error parsing message content.",
-                  isRead: true
-                });
-              }
+            // ONLY fetch envelope and flags for the list view - MUCH FASTER
+            for await (const msg of client.fetch(range, { envelope: true, flags: true })) {
+              messages.push({
+                uid: msg.uid,
+                seq: msg.seq,
+                subject: msg.envelope.subject || "(No Subject)",
+                from: msg.envelope.from?.map(f => f.name ? `${f.name} <${f.address}>` : f.address).join(", ") || "(Unknown Sender)",
+                to: msg.envelope.to?.map(t => t.address).join(", "),
+                date: msg.envelope.date || new Date().toISOString(),
+                snippet: "",
+                body: "",
+                isRead: msg.flags ? msg.flags.has("\\Seen") : false,
+                attachments: []
+              });
             }
           } catch (fetchError: any) {
             console.error("[IMAP] Fetch command failed:", fetchError);
@@ -230,6 +339,95 @@ router.post("/fetch-emails", async (req, res) => {
       res.status(500).json({ error: `IMAP Error: ${error.message}` });
     }
   });
+
+// API: Fetch Single Message Body (IMAP Proxy)
+router.post("/fetch-message-body", async (req, res) => {
+  const { imapConfig, uid, folder = "INBOX", authType, accessToken, refreshToken } = req.body;
+
+  if (!imapConfig || !uid) {
+    return res.status(400).json({ error: "Missing configuration or UID" });
+  }
+
+  const imapOptions: any = {
+    host: imapConfig.host,
+    port: imapConfig.port,
+    secure: imapConfig.port === 993,
+    logger: false,
+  };
+
+  if (authType === 'oauth2') {
+    let currentAccessToken = accessToken;
+    const isMicrosoft = imapConfig.host.includes('office365') || imapConfig.host.includes('outlook');
+
+    if (isMicrosoft && refreshToken) {
+      try {
+        const refreshResponse = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', 
+          new URLSearchParams({
+            client_id: MICROSOFT_CLIENT_ID!,
+            client_secret: MICROSOFT_CLIENT_SECRET!,
+            refresh_token: refreshToken,
+            grant_type: 'refresh_token',
+          }).toString(),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
+        currentAccessToken = refreshResponse.data.access_token;
+      } catch (err) {
+        console.error("Failed to refresh Microsoft token for Body Fetch:", err);
+      }
+    } else if (!isMicrosoft && refreshToken) {
+      try {
+        const oauth2Client = getOAuth2Client();
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+        const { token } = await oauth2Client.getAccessToken();
+        if (token) currentAccessToken = token;
+      } catch (err) {
+        console.error("Failed to refresh Google token for Body Fetch:", err);
+      }
+    }
+
+    imapOptions.auth = { user: imapConfig.user, accessToken: currentAccessToken };
+  } else {
+    imapOptions.auth = { user: imapConfig.user, pass: imapConfig.pass };
+  }
+
+  const client = new ImapFlow(imapOptions);
+
+  try {
+    await client.connect();
+    await client.mailboxOpen(folder);
+    const lock = await client.getMailboxLock(folder);
+    
+    let messageData = null;
+    try {
+      const msg = await client.fetchOne(uid.toString(), { source: true }, { uid: true });
+      if (msg && msg.source) {
+        const parsed = await simpleParser(msg.source);
+        messageData = {
+          snippet: parsed.text?.substring(0, 100) || "",
+          body: parsed.html || parsed.textAsHtml || parsed.text || "",
+          attachments: parsed.attachments.map(att => ({
+            filename: att.filename || "unnamed-attachment",
+            contentType: att.contentType,
+            size: att.size,
+            contentId: att.contentId,
+            url: `data:${att.contentType};base64,${att.content.toString('base64')}`
+          }))
+        };
+      }
+    } finally {
+      lock.release();
+    }
+
+    await client.logout();
+    if (messageData) {
+      res.json({ success: true, ...messageData });
+    } else {
+      res.status(404).json({ error: "Message not found" });
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // API: Update Email Flags (Mark as Read/Unread)
 router.post("/update-flags", async (req, res) => {
@@ -248,17 +446,38 @@ router.post("/update-flags", async (req, res) => {
 
   if (authType === 'oauth2') {
     let currentAccessToken = accessToken;
-    if (refreshToken) {
-      try {
-        if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-          throw new Error("Missing Google OAuth credentials");
+    const isMicrosoft = imapConfig.host.includes('office365') || imapConfig.host.includes('outlook');
+
+    if (isMicrosoft) {
+      if (refreshToken) {
+        try {
+          const refreshResponse = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', 
+            new URLSearchParams({
+              client_id: MICROSOFT_CLIENT_ID!,
+              client_secret: MICROSOFT_CLIENT_SECRET!,
+              refresh_token: refreshToken,
+              grant_type: 'refresh_token',
+            }).toString(),
+            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+          );
+          currentAccessToken = refreshResponse.data.access_token;
+        } catch (err) {
+          console.error("Failed to refresh Microsoft token for IMAP Flag Update:", err);
         }
-        const oauth2Client = getOAuth2Client();
-        oauth2Client.setCredentials({ refresh_token: refreshToken });
-        const { token } = await oauth2Client.getAccessToken();
-        if (token) currentAccessToken = token;
-      } catch (err) {
-        console.error("Failed to refresh token for IMAP Flag Update:", err);
+      }
+    } else {
+      if (refreshToken) {
+        try {
+          if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+            throw new Error("Missing Google OAuth credentials");
+          }
+          const oauth2Client = getOAuth2Client();
+          oauth2Client.setCredentials({ refresh_token: refreshToken });
+          const { token } = await oauth2Client.getAccessToken();
+          if (token) currentAccessToken = token;
+        } catch (err) {
+          console.error("Failed to refresh token for IMAP Flag Update:", err);
+        }
       }
     }
     imapOptions.auth = { user: imapConfig.user, accessToken: currentAccessToken };
@@ -270,6 +489,7 @@ router.post("/update-flags", async (req, res) => {
 
   try {
     await client.connect();
+    await client.mailboxOpen(folder);
     const lock = await client.getMailboxLock(folder);
     try {
       if (action === 'add') {

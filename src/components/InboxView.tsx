@@ -57,13 +57,78 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
     setSummary(null);
     setSmartReplies([]);
     if (selectedMessage) {
-      handleGenerateReplies();
+      // If body is empty, fetch it
+      if (!selectedMessage.body) {
+        fetchMessageBody(selectedMessage);
+      } else {
+        handleGenerateReplies();
+      }
+      
       // Automatically mark as read if it's currently unread
       if (!selectedMessage.isRead) {
         toggleReadStatus(selectedMessage);
       }
     }
   }, [selectedMessage]);
+
+  const fetchMessageBody = async (msg: EmailMessage) => {
+    const acc = accounts.find(a => a.id === msg.accountId);
+    if (!acc) return;
+
+    // Map folder names to common IMAP paths (same logic as fetchMessages)
+    let imapFolder = folder.toUpperCase();
+    if (acc.provider === 'gmail') {
+      if (folder === 'sent') imapFolder = '[Gmail]/Sent Mail';
+      else if (folder === 'drafts') imapFolder = '[Gmail]/Drafts';
+      else if (folder === 'trash') imapFolder = '[Gmail]/Trash';
+      else if (folder === 'spam') imapFolder = '[Gmail]/Spam';
+    } else if (acc.provider === 'outlook') {
+      if (folder === 'sent') imapFolder = 'Sent';
+      else if (folder === 'drafts') imapFolder = 'Drafts';
+      else if (folder === 'trash') imapFolder = 'Deleted';
+      else if (folder === 'spam') imapFolder = 'Junk';
+    }
+
+    try {
+      const response = await fetch('/api/fetch-message-body', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imapConfig: {
+            host: acc.imapHost,
+            port: acc.imapPort,
+            user: acc.email,
+            pass: acc.password
+          },
+          uid: msg.id.substring(msg.id.indexOf('-') + 1), // Robust UID extraction
+          folder: imapFolder,
+          authType: acc.authType,
+          accessToken: acc.accessToken,
+          refreshToken: acc.refreshToken
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        const updatedMsg = { 
+          ...msg, 
+          body: data.body, 
+          snippet: data.snippet, 
+          attachments: data.attachments 
+        };
+        
+        // Update in messages list
+        setMessages(prev => prev.map(m => m.id === msg.id ? updatedMsg : m));
+        
+        // Update selected message if it's still the same one
+        if (selectedMessage?.id === msg.id) {
+          setSelectedMessage(updatedMsg);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch message body", err);
+    }
+  };
 
   const handleSummarize = async () => {
     if (!selectedMessage) return;
@@ -267,23 +332,63 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
           new Date(b.date).getTime() - new Date(a.date).getTime()
         );
 
-        // Fetch priorities for the first 5 messages sequentially to avoid rate limits
-        const prioritizedMessages = [...sortedMessages];
-        for (let i = 0; i < Math.min(5, prioritizedMessages.length); i++) {
-          const msg = prioritizedMessages[i];
-          try {
-            const priority = await detectPriority(msg.subject, msg.body);
-            prioritizedMessages[i] = { ...msg, priority };
-            // Small delay between requests to be safe
-            if (i < 4) await new Promise(resolve => setTimeout(resolve, 500));
-          } catch (err) {
-            console.warn(`Failed to detect priority for message ${i}:`, err);
-          }
-        }
+        setMessages(sortedMessages);
+        setLoading(false); // Stop loading early
 
-        setMessages(prioritizedMessages);
+        // Background: Fetch priorities for the first 5 messages
+        (async () => {
+          const prioritizedMessages = [...sortedMessages];
+          for (let i = 0; i < Math.min(5, prioritizedMessages.length); i++) {
+            const msg = prioritizedMessages[i];
+            try {
+              // We need the body for priority detection, so fetch it if empty
+              let body = msg.body;
+              if (!body) {
+                const acc = accounts.find(a => a.id === msg.accountId);
+                if (acc) {
+                  // Map folder names to common IMAP paths
+                  let imapFolder = folder.toUpperCase();
+                  if (acc.provider === 'gmail') {
+                    if (folder === 'sent') imapFolder = '[Gmail]/Sent Mail';
+                    else if (folder === 'drafts') imapFolder = '[Gmail]/Drafts';
+                    else if (folder === 'trash') imapFolder = '[Gmail]/Trash';
+                    else if (folder === 'spam') imapFolder = '[Gmail]/Spam';
+                  } else if (acc.provider === 'outlook') {
+                    if (folder === 'sent') imapFolder = 'Sent';
+                    else if (folder === 'drafts') imapFolder = 'Drafts';
+                    else if (folder === 'trash') imapFolder = 'Deleted';
+                    else if (folder === 'spam') imapFolder = 'Junk';
+                  }
+
+                  const resp = await fetch('/api/fetch-message-body', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      imapConfig: { host: acc.imapHost, port: acc.imapPort, user: acc.email, pass: acc.password },
+                      uid: msg.id.substring(msg.id.indexOf('-') + 1),
+                      folder: imapFolder,
+                      authType: acc.authType,
+                      accessToken: acc.accessToken,
+                      refreshToken: acc.refreshToken
+                    })
+                  });
+                  const data = await resp.json();
+                  if (data.success) body = data.body;
+                }
+              }
+
+              const priority = await detectPriority(msg.subject, body || "");
+              setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, priority, body: body || m.body } : m));
+              
+              // Small delay between requests
+              if (i < 4) await new Promise(resolve => setTimeout(resolve, 300));
+            } catch (err) {
+              console.warn(`Background priority detection failed for ${msg.id}:`, err);
+            }
+          }
+        })();
+
         if (errors.length > 0) {
-          // Optionally show a non-blocking warning if some accounts failed
           console.warn("Some accounts failed to fetch:", errors);
         }
       }

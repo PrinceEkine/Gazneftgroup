@@ -32,6 +32,9 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
       if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
         const { tokens, userInfo } = event.data;
         handleGoogleAuthSuccess(tokens, userInfo);
+      } else if (event.data?.type === 'MICROSOFT_AUTH_SUCCESS') {
+        const { tokens, userInfo } = event.data;
+        handleMicrosoftAuthSuccess(tokens, userInfo);
       }
     };
     window.addEventListener('message', handleMessage);
@@ -67,6 +70,40 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
     } catch (error: any) {
       console.error("Failed to add Google account", error);
       setStatus({ type: 'error', message: "Failed to connect Google account: " + error.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleMicrosoftAuthSuccess = async (tokens: any, userInfo: any) => {
+    setIsSaving(true);
+    setStatus(null);
+    try {
+      const accountsRef = collection(db, 'users', user.uid, 'accounts');
+      await addDoc(accountsRef, {
+        ownerUid: user.uid,
+        email: userInfo.email,
+        label: `Outlook (${userInfo.name})`,
+        provider: 'outlook',
+        authType: 'oauth2',
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiryDate: Date.now() + (tokens.expires_in * 1000),
+        imapHost: 'outlook.office365.com',
+        imapPort: 993,
+        smtpHost: 'smtp.office365.com',
+        smtpPort: 587,
+        color: '#0078d4',
+        createdAt: new Date().toISOString()
+      });
+      setStatus({ type: 'success', message: "Microsoft account connected successfully!" });
+      setTimeout(() => {
+        setIsAdding(false);
+        setStatus(null);
+      }, 2000);
+    } catch (error: any) {
+      console.error("Failed to add Microsoft account", error);
+      setStatus({ type: 'error', message: "Failed to connect Microsoft account: " + error.message });
     } finally {
       setIsSaving(false);
     }
@@ -109,6 +146,31 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
       authWindow.location.href = url;
     } catch (error: any) {
       console.error("Failed to get Google auth URL", error);
+      authWindow.close();
+      setStatus({ type: 'error', message: "Failed to connect to backend: " + error.message });
+    }
+  };
+
+  const connectWithMicrosoft = async () => {
+    const authWindow = window.open('about:blank', 'microsoft_auth', 'width=600,height=700');
+    if (!authWindow) {
+      setStatus({ type: 'error', message: "Popup blocked! Please allow popups for this site to connect your Microsoft account." });
+      return;
+    }
+    
+    authWindow.document.write('<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#0f172a;color:white;"><div>Connecting to Microsoft...</div></body></html>');
+
+    try {
+      const response = await fetch('/api/auth/microsoft/url');
+      const { url, error } = await response.json();
+      if (error) {
+        authWindow.close();
+        setStatus({ type: 'error', message: "Backend error: " + error });
+        return;
+      }
+      authWindow.location.href = url;
+    } catch (error: any) {
+      console.error("Failed to get Microsoft auth URL", error);
       authWindow.close();
       setStatus({ type: 'error', message: "Failed to connect to backend: " + error.message });
     }
@@ -247,6 +309,15 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
                 >
                   {isSaving ? <RefreshCw className="animate-spin text-blue-500" size={20} /> : <Chrome size={20} className="text-blue-500" />}
                   {isSaving ? "Connecting..." : "Connect with Google"}
+                </button>
+
+                <button 
+                  onClick={connectWithMicrosoft}
+                  disabled={isSaving}
+                  className="bg-[#00a1f1] hover:bg-[#008ad0] text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-[#00a1f1]/20 disabled:opacity-50"
+                >
+                  {isSaving ? <RefreshCw className="animate-spin text-white" size={20} /> : <Mail size={20} className="text-white" />}
+                  {isSaving ? "Connecting..." : "Connect with Microsoft"}
                 </button>
 
                 <div className="relative py-4">

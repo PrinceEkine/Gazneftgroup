@@ -19,7 +19,7 @@ async function startServer() {
   const oauth2Client = new google.auth.OAuth2(
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
-    `${process.env.APP_URL}/auth/google/callback`
+    `${process.env.APP_URL}/api/auth/google/callback`
   );
 
   app.get("/api/auth/google/url", (req, res) => {
@@ -35,7 +35,7 @@ async function startServer() {
     res.json({ url });
   });
 
-  app.get("/auth/google/callback", async (req, res) => {
+  app.get("/api/auth/google/callback", async (req, res) => {
     const { code } = req.query;
     try {
       const { tokens } = await oauth2Client.getToken(code as string);
@@ -203,6 +203,62 @@ async function startServer() {
       res.json({ success: true, messages: messages.reverse() });
     } catch (error: any) {
       console.error("IMAP Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // API: Update Email Flags (Mark as Read/Unread)
+  app.post("/api/update-flags", async (req, res) => {
+    const { imapConfig, uid, flags, action, authType, accessToken, refreshToken } = req.body;
+
+    if (!imapConfig || !uid || !flags || !action) {
+      return res.status(400).json({ error: "Missing required parameters" });
+    }
+
+    const imapOptions: any = {
+      host: imapConfig.host,
+      port: imapConfig.port,
+      secure: imapConfig.port === 993,
+      logger: false,
+    };
+
+    if (authType === 'oauth2') {
+      let currentAccessToken = accessToken;
+      if (refreshToken) {
+        try {
+          const client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET);
+          client.setCredentials({ refresh_token: refreshToken });
+          const { token } = await client.getAccessToken();
+          if (token) currentAccessToken = token;
+        } catch (err) {
+          console.error("Failed to refresh token for IMAP Flag Update:", err);
+        }
+      }
+      imapOptions.auth = { user: imapConfig.user, accessToken: currentAccessToken };
+    } else {
+      imapOptions.auth = { user: imapConfig.user, pass: imapConfig.pass };
+    }
+
+    const client = new ImapFlow(imapOptions);
+
+    try {
+      await client.connect();
+      const lock = await client.getMailboxLock("INBOX"); // Defaulting to INBOX for now, could be passed
+      try {
+        if (action === 'add') {
+          await client.messageFlagsAdd({ uid }, flags);
+        } else if (action === 'remove') {
+          await client.messageFlagsRemove({ uid }, flags);
+        } else if (action === 'set') {
+          await client.messageFlagsSet({ uid }, flags);
+        }
+        res.json({ success: true });
+      } finally {
+        lock.release();
+      }
+      await client.logout();
+    } catch (error: any) {
+      console.error("IMAP Flag Error:", error);
       res.status(500).json({ error: error.message });
     }
   });

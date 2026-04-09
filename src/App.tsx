@@ -9,6 +9,7 @@ import {
   Settings, 
   LogOut, 
   Mail,
+  Clock,
   ChevronRight,
   Search,
   RefreshCw,
@@ -169,7 +170,7 @@ export default function App() {
             <Mail className="text-white w-8 h-8" />
           </div>
           
-          <h1 className="text-3xl font-bold text-white mb-2">Gazneftgroup</h1>
+          <h1 className="text-4xl font-display text-white mb-2 uppercase tracking-tight">Gazneftgroups</h1>
           <p className="text-slate-400 mb-8 text-sm">Secure, multi-account webmail for power users.</p>
 
           <form onSubmit={handleEmailAuth} className="space-y-4 text-left">
@@ -277,6 +278,13 @@ export default function App() {
               </button>
             )}
           </div>
+
+          <div className="mt-8 p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl text-left">
+            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Deployment Note</p>
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              If deploying to Netlify, ensure <span className="text-blue-400">gazneftgroup.netlify.app</span> is added to Firebase Authorized Domains and <span className="text-blue-400">https://gazneftgroup.netlify.app/api/auth/google/callback</span> is added to Google OAuth Redirect URIs.
+            </p>
+          </div>
         </motion.div>
       </div>
     );
@@ -298,7 +306,7 @@ export default function App() {
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                   <Mail className="text-white w-5 h-5" />
                 </div>
-                <span className="font-bold text-xl tracking-tight">Gazneft</span>
+                <span className="font-display text-xl tracking-tight uppercase">Gazneftgroups</span>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
                 <X size={20} />
@@ -318,6 +326,7 @@ export default function App() {
             <nav className="flex-1 px-2 space-y-1 overflow-y-auto custom-scrollbar">
               <div className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Mailboxes</div>
               <NavItem icon={<Inbox size={18} />} label="Inbox" active={activeFolder === 'inbox'} onClick={() => setActiveFolder('inbox')} />
+              <NavItem icon={<Clock size={18} />} label="Snoozed" active={activeFolder === 'snoozed'} onClick={() => setActiveFolder('snoozed')} />
               <NavItem icon={<Send size={18} />} label="Sent" active={activeFolder === 'sent'} onClick={() => setActiveFolder('sent')} />
               <NavItem icon={<FileText size={18} />} label="Drafts" active={activeFolder === 'drafts'} onClick={() => setActiveFolder('drafts')} />
               <NavItem icon={<Trash2 size={18} />} label="Trash" active={activeFolder === 'trash'} onClick={() => setActiveFolder('trash')} />

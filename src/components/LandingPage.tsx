@@ -12,7 +12,12 @@ import {
   CheckCircle2,
   Sparkles,
   MessageSquare,
-  Layout
+  Layout,
+  Inbox,
+  Send,
+  FileText,
+  Trash2,
+  Clock
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -30,7 +35,7 @@ export default function LandingPage({ onGetStarted }: Props) {
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
               <Mail className="text-white w-6 h-6" />
             </div>
-            <span className="font-bold text-2xl tracking-tight text-white">Gazneft</span>
+            <span className="font-display text-2xl tracking-tight text-white uppercase">Gazneftgroups</span>
           </div>
           
           <div className="hidden md:flex items-center gap-8">
@@ -69,18 +74,20 @@ export default function LandingPage({ onGetStarted }: Props) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-wider mb-8">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8">
               <Sparkles size={14} />
-              The Future of Webmail is Here
+              The Future of Webmail
             </span>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-8 tracking-tight leading-[0.9]">
-              Secure Mail for <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600">Power Users.</span>
+            <h1 className="text-[18vw] md:text-[15vw] lg:text-[12vw] font-display text-white mb-4 tracking-tight leading-[0.8] uppercase">
+              Gazneft <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-b from-blue-400 to-blue-700">Groups.</span>
             </h1>
-            <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed">
-              Manage up to 20 accounts in one unified, AI-powered interface. 
-              Built for speed, privacy, and deliverability.
-            </p>
+            <div className="max-w-xl mx-auto mb-12">
+              <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-medium">
+                Manage up to 20 accounts in one unified, AI-powered interface. 
+                Built for speed, privacy, and deliverability.
+              </p>
+            </div>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button 
@@ -101,26 +108,81 @@ export default function LandingPage({ onGetStarted }: Props) {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="mt-24 relative max-w-5xl mx-auto"
+            className="mt-24 relative max-w-6xl mx-auto"
           >
             <div className="absolute inset-0 bg-blue-600/20 blur-[100px] -z-10 rounded-full" />
+            
+            {/* Hero Image */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, delay: 0.4 }}
+              className="mb-16 rounded-3xl overflow-hidden border border-slate-800 shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] group"
+            >
+              <img 
+                src="https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2029&auto=format&fit=crop" 
+                alt="Gazneftgroups Dashboard" 
+                className="w-full h-[500px] object-cover opacity-70 group-hover:opacity-90 transition-all duration-1000 group-hover:scale-105"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-60" />
+            </motion.div>
+
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-2 shadow-2xl overflow-hidden aspect-[16/10]">
               <div className="bg-slate-950 rounded-2xl w-full h-full border border-slate-800/50 flex overflow-hidden">
                 {/* Mock Sidebar */}
-                <div className="w-1/4 border-r border-slate-800 p-4 space-y-4 hidden sm:block">
-                  <div className="h-8 bg-slate-900 rounded-lg w-3/4" />
-                  <div className="space-y-2">
-                    {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="h-6 bg-slate-900/50 rounded-md w-full" />
+                <div className="w-1/4 border-r border-slate-800 p-4 space-y-4 hidden sm:block bg-slate-950/50">
+                  <div className="flex items-center gap-2 mb-8">
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg" />
+                    <div className="h-4 bg-slate-800 rounded w-20" />
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { icon: <Inbox size={14} />, label: "Inbox", active: true },
+                      { icon: <Send size={14} />, label: "Sent" },
+                      { icon: <FileText size={14} />, label: "Drafts" },
+                      { icon: <Trash2 size={14} />, label: "Trash" }
+                    ].map((item, i) => (
+                      <div key={i} className={cn("flex items-center gap-3 p-2 rounded-lg", item.active ? "bg-blue-600/10 text-blue-400" : "text-slate-500")}>
+                        {item.icon}
+                        <div className={cn("h-3 rounded w-16", item.active ? "bg-blue-400/20" : "bg-slate-800/50")} />
+                      </div>
                     ))}
                   </div>
                 </div>
                 {/* Mock Content */}
-                <div className="flex-1 p-6 space-y-6">
-                  <div className="h-10 bg-slate-900 rounded-xl w-full" />
-                  <div className="space-y-4">
-                    {[1, 2, 3, 4, 5].map(i => (
-                      <div key={i} className="h-16 bg-slate-900/30 rounded-xl w-full border border-slate-800/30" />
+                <div className="flex-1 flex flex-col">
+                  <div className="h-16 border-b border-slate-800 p-4 flex items-center justify-between">
+                    <div className="h-8 bg-slate-900 rounded-xl w-1/3" />
+                    <div className="flex gap-2">
+                      <div className="w-8 h-8 rounded-full bg-slate-900" />
+                      <div className="w-8 h-8 rounded-full bg-slate-900" />
+                    </div>
+                  </div>
+                  <div className="flex-1 p-4 space-y-3 overflow-hidden">
+                    {[
+                      { from: "Sarah Miller", subject: "Project Update - Q2 Goals", time: "10:24 AM", unread: true },
+                      { from: "GitHub", subject: "[Security] Alert for repository...", time: "9:15 AM" },
+                      { from: "Stripe", subject: "Your weekly payout is on its way", time: "Yesterday" },
+                      { from: "Framer", subject: "New features are here!", time: "Apr 7" },
+                      { from: "Slack", subject: "You have 3 unread messages", time: "Apr 6" }
+                    ].map((mail, i) => (
+                      <div key={i} className={cn("p-4 rounded-xl border flex items-center justify-between group transition-all", mail.unread ? "bg-blue-600/5 border-blue-500/20" : "bg-slate-900/30 border-slate-800/30")}>
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className={cn("w-2 h-2 rounded-full", mail.unread ? "bg-blue-500" : "bg-transparent")} />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={cn("text-xs font-bold", mail.unread ? "text-white" : "text-slate-400")}>{mail.from}</span>
+                              <span className="text-[10px] text-slate-600">{mail.time}</span>
+                            </div>
+                            <p className={cn("text-xs truncate", mail.unread ? "text-slate-200" : "text-slate-500")}>{mail.subject}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center"><Clock size={10} className="text-slate-500" /></div>
+                          <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center"><Trash2 size={10} className="text-slate-500" /></div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -134,8 +196,8 @@ export default function LandingPage({ onGetStarted }: Props) {
       <section id="features" className="py-32 px-6 bg-slate-950 relative">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">Everything you need to <br />manage your digital life.</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">One platform, all your accounts. No more switching tabs or losing track of important conversations.</p>
+            <h2 className="text-4xl md:text-6xl font-display text-white mb-6 uppercase leading-[0.9]">Everything you need <br />to manage your mail.</h2>
+            <p className="text-slate-400 max-w-2xl mx-auto font-medium">One inbox, all your accounts. No more switching tabs or losing track of important conversations.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -149,11 +211,13 @@ export default function LandingPage({ onGetStarted }: Props) {
               title="Instant Deliverability"
               description="AI-powered spam analysis ensures your emails land in the inbox, not the junk folder."
             />
-            <FeatureCard 
-              icon={<Sparkles className="text-purple-500" />}
-              title="Smart AI Tools"
-              description="Summarize long threads and generate professional replies in seconds with Gemini AI."
-            />
+            <div id="ai">
+              <FeatureCard 
+                icon={<Sparkles className="text-purple-500" />}
+                title="Smart AI Tools"
+                description="Summarize long threads and generate professional replies in seconds with Gemini AI."
+              />
+            </div>
             <FeatureCard 
               icon={<ShieldCheck className="text-green-500" />}
               title="End-to-End Security"
@@ -173,6 +237,61 @@ export default function LandingPage({ onGetStarted }: Props) {
         </div>
       </section>
 
+      {/* AI Section */}
+      <section id="ai" className="py-32 px-6 bg-slate-950 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl h-full bg-purple-600/5 blur-[120px] rounded-full pointer-events-none" />
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row-reverse items-center gap-16">
+          <div className="flex-1">
+            <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-8 border border-purple-500/20">
+              <Sparkles className="text-purple-500 w-8 h-8" />
+            </div>
+            <h2 className="text-5xl md:text-7xl font-display text-white mb-8 leading-[0.85] uppercase">AI-Powered <br />Intelligence.</h2>
+            <p className="text-slate-400 text-lg mb-8 font-medium">
+              Harness the power of Gemini AI to transform how you handle email. Summarize long threads, detect priorities, and generate professional replies in seconds.
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 text-slate-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                <span>Smart Thread Summarization</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                <span>Context-Aware Smart Replies</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                <span>Automated Priority Detection</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 w-full">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-[2rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+              <div className="relative bg-slate-950 rounded-2xl p-6 border border-slate-800">
+                <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
+                  <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                    <Sparkles size={14} className="text-purple-500" />
+                  </div>
+                  <span className="text-sm font-bold text-white uppercase tracking-wider">Gemini AI Assistant</span>
+                </div>
+                <div className="space-y-4">
+                  <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-800/50">
+                    <p className="text-xs text-slate-500 mb-2 uppercase font-bold tracking-widest">Summary</p>
+                    <p className="text-sm text-slate-300 leading-relaxed italic">
+                      "This thread discusses the Q3 project timeline. The team has agreed on the October 15th launch date, but needs final approval on the marketing budget by Friday."
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="px-3 py-1.5 bg-blue-600/10 text-blue-400 rounded-full text-[10px] font-bold uppercase border border-blue-500/20">Sounds good!</div>
+                    <div className="px-3 py-1.5 bg-purple-600/10 text-purple-400 rounded-full text-[10px] font-bold uppercase border border-purple-500/20">I'll check the budget</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Security Section */}
       <section id="security" className="py-32 px-6 bg-slate-900/30 border-y border-slate-800/50">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16">
@@ -180,7 +299,7 @@ export default function LandingPage({ onGetStarted }: Props) {
             <div className="w-16 h-16 bg-green-500/10 rounded-2xl flex items-center justify-center mb-8 border border-green-500/20">
               <Lock className="text-green-500 w-8 h-8" />
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-8 leading-tight">Privacy is not an option. <br />It's a requirement.</h2>
+            <h2 className="text-5xl md:text-7xl font-display text-white mb-8 leading-[0.85] uppercase">Privacy is not <br />an option.</h2>
             <div className="space-y-6">
               <SecurityItem title="Zero-Knowledge Architecture" description="We don't store your passwords. OAuth tokens are encrypted and handled securely." />
               <SecurityItem title="No Data Mining" description="Unlike free providers, we never scan your emails for advertising or tracking purposes." />
@@ -222,8 +341,8 @@ export default function LandingPage({ onGetStarted }: Props) {
       <section className="py-32 px-6 text-center relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-full bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
         <div className="max-w-3xl mx-auto relative z-10">
-          <h2 className="text-4xl md:text-6xl font-bold text-white mb-8 leading-tight">Ready to upgrade your <br />email experience?</h2>
-          <p className="text-lg text-slate-400 mb-12 leading-relaxed">Join thousands of power users who trust Gazneft for their professional communication.</p>
+          <h2 className="text-[12vw] md:text-[10vw] font-display text-white mb-8 leading-[0.8] uppercase">Ready to <br />upgrade?</h2>
+          <p className="text-lg text-slate-400 mb-12 leading-relaxed font-medium">Join thousands of power users who trust Gazneftgroups for their professional communication.</p>
           <button 
             onClick={() => onGetStarted('register')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-5 px-12 rounded-2xl transition-all shadow-2xl shadow-blue-600/30 text-xl"
@@ -242,16 +361,16 @@ export default function LandingPage({ onGetStarted }: Props) {
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <Mail className="text-white w-5 h-5" />
               </div>
-              <span className="font-bold text-xl text-white">Gazneft</span>
+              <span className="font-display text-xl text-white uppercase tracking-tight">Gazneftgroups</span>
             </div>
             <p className="text-slate-500 max-w-sm">The ultimate webmail client for power users. Secure, fast, and powered by AI.</p>
           </div>
           <div>
             <h4 className="text-white font-bold mb-6">Product</h4>
             <ul className="space-y-4 text-sm text-slate-500">
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Features</a></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Security</a></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">AI Tools</a></li>
+              <li><a href="#features" className="hover:text-blue-400 transition-colors">Features</a></li>
+              <li><a href="#security" className="hover:text-blue-400 transition-colors">Security</a></li>
+              <li><a href="#ai" className="hover:text-blue-400 transition-colors">AI Tools</a></li>
               <li><a href="#" className="hover:text-blue-400 transition-colors">Pricing</a></li>
             </ul>
           </div>
@@ -266,7 +385,7 @@ export default function LandingPage({ onGetStarted }: Props) {
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-slate-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-600">© 2026 Gazneftgroup. All rights reserved.</p>
+          <p className="text-xs text-slate-600">© 2026 Gazneftgroups. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <Globe size={16} className="text-slate-600" />
             <span className="text-xs text-slate-600">English (US)</span>

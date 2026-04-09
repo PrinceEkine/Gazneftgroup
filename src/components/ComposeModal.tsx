@@ -29,6 +29,7 @@ interface DeliverabilityAnalysis {
 export default function ComposeModal({ accounts, onClose, user }: Props) {
   const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
   const [to, setTo] = useState('');
+  const [replyTo, setReplyTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -147,6 +148,7 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
         name: templateName,
         subject,
         body,
+        replyTo,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
@@ -162,6 +164,7 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
   const handleSelectTemplate = (template: EmailTemplate) => {
     setSubject(template.subject);
     setBody(template.body);
+    setReplyTo(template.replyTo || '');
     if (editorRef.current) {
       editorRef.current.innerHTML = template.body;
     }
@@ -194,6 +197,7 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
           mailOptions: {
             from: `"${selectedAccount.label}" <${selectedAccount.email}>`,
             to: recipients.join(', '),
+            replyTo: replyTo || undefined,
             subject,
             html: body,
             attachments: attachments.map(att => ({
@@ -204,6 +208,11 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
           }
         })
       });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned HTML instead of JSON. Ensure the backend is running.");
+      }
 
       const data = await response.json();
       if (data.success) {
@@ -286,6 +295,16 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
                     onChange={e => setTo(e.target.value)}
                     className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-slate-600 focus:ring-0"
                     required
+                  />
+                </div>
+                <div className="flex items-center gap-4 border-t border-slate-800/50 pt-4">
+                  <span className="text-sm text-slate-500 w-12">Reply-To</span>
+                  <input 
+                    type="email" 
+                    placeholder="alternative-reply@example.com (optional)"
+                    value={replyTo}
+                    onChange={e => setReplyTo(e.target.value)}
+                    className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-slate-600 focus:ring-0"
                   />
                 </div>
                 <div className="flex items-center gap-4 border-t border-slate-800/50 pt-4">

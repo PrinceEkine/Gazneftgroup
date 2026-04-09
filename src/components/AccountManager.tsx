@@ -141,6 +141,12 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
           type: 'imap'
         })
       });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned HTML instead of JSON. Ensure the backend is running.");
+      }
+
       const data = await response.json();
       if (data.success) {
         setTestResult({ success: true, message: "Connection successful!" });

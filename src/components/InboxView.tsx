@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Star, Paperclip, Clock, ChevronRight, Inbox, Trash2, RefreshCw, Sparkles, AlertCircle, ArrowDown, Send, FileText } from 'lucide-react';
+import { Mail, Star, Paperclip, Clock, ChevronRight, Inbox, Trash2, RefreshCw, Sparkles, AlertCircle, ArrowDown, Send, FileText, MailOpen, X, Sun, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { EmailAccount, EmailMessage } from '../types';
@@ -22,6 +22,8 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [isGeneratingReplies, setIsGeneratingReplies] = useState(false);
+  const [isUpdatingFlags, setIsUpdatingFlags] = useState(false);
+  const [showSnoozeModal, setShowSnoozeModal] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMessages();
@@ -32,6 +34,10 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
     setSmartReplies([]);
     if (selectedMessage) {
       handleGenerateReplies();
+      // Automatically mark as read if it's currently unread
+      if (!selectedMessage.isRead) {
+        toggleReadStatus(selectedMessage);
+      }
     }
   }, [selectedMessage]);
 
@@ -49,6 +55,90 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
     const replies = await generateSmartReplies(selectedMessage.subject, selectedMessage.body);
     setSmartReplies(replies);
     setIsGeneratingReplies(false);
+  };
+
+  const toggleReadStatus = async (msg: EmailMessage) => {
+    if (isUpdatingFlags) return;
+    
+    const acc = accounts.find(a => a.id === msg.accountId);
+    if (!acc) return;
+
+    setIsUpdatingFlags(true);
+    const newReadStatus = !msg.isRead;
+
+    try {
+      const response = await fetch('/api/update-flags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imapConfig: {
+            host: acc.imapHost,
+            port: acc.imapPort,
+            user: acc.email,
+            pass: acc.password
+          },
+          uid: msg.id, // In our types, id is msg.uid
+          flags: ["\\Seen"],
+          action: newReadStatus ? 'add' : 'remove',
+          authType: acc.authType,
+          accessToken: acc.accessToken,
+          refreshToken: acc.refreshToken
+        })
+      });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned HTML instead of JSON. Ensure the backend is running.");
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        // Update local state
+        const updatedMessages = messages.map(m => 
+          m.id === msg.id ? { ...m, isRead: newReadStatus } : m
+        );
+        setMessages(updatedMessages);
+        
+        if (selectedMessage?.id === msg.id) {
+          setSelectedMessage({ ...selectedMessage, isRead: newReadStatus });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to update read status", error);
+    } finally {
+      setIsUpdatingFlags(false);
+    }
+  };
+
+  const handleSnooze = async (msgId: string, duration: string) => {
+    // In a real app, we'd save this to Firestore or move to a Snoozed folder
+    // For this demo, we'll update the local state with a snoozedUntil date
+    const now = new Date();
+    let snoozedUntil = new Date();
+    
+    if (duration === 'Later today') snoozedUntil.setHours(18, 0, 0, 0);
+    else if (duration === 'Tomorrow') snoozedUntil.setDate(now.getDate() + 1);
+    else if (duration === 'This weekend') {
+      const day = now.getDay();
+      const diff = (day === 0 ? 6 : 6 - day); // Saturday
+      snoozedUntil.setDate(now.getDate() + diff);
+      snoozedUntil.setHours(10, 0, 0, 0);
+    }
+    else if (duration === 'Next week') {
+      const day = now.getDay();
+      const diff = (day === 0 ? 1 : 8 - day); // Monday
+      snoozedUntil.setDate(now.getDate() + diff);
+      snoozedUntil.setHours(8, 0, 0, 0);
+    }
+
+    setMessages(prev => prev.map(m => 
+      m.id === msgId ? { ...m, snoozedUntil: snoozedUntil.toISOString() } : m
+    ));
+
+    if (selectedMessage?.id === msgId) {
+      setSelectedMessage(null);
+    }
+    setShowSnoozeModal(null);
   };
 
   const fetchMessages = async () => {
@@ -83,6 +173,14 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
           limit: 20
         })
       });
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Non-JSON response received:", text);
+        throw new Error("Server returned HTML instead of JSON. This usually means the backend server is not running or you are on a static host like Netlify without a configured backend.");
+      }
+
       const data = await response.json();
       if (data.success) {
         const allMessages = data.messages.map((m: any) => ({ ...m, accountId: acc.id }));
@@ -108,10 +206,23 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
     }
   };
 
-  const filteredMessages = messages.filter(m => 
-    m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.from.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredMessages = messages.filter(m => {
+    const matchesSearch = m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         m.from.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const isSnoozed = m.snoozedUntil && new Date(m.snoozedUntil) > new Date();
+    
+    if (folder === 'snoozed') {
+      return matchesSearch && isSnoozed;
+    }
+    
+    // If in inbox, hide snoozed messages
+    if (folder === 'inbox') {
+      return matchesSearch && !isSnoozed;
+    }
+
+    return matchesSearch;
+  });
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -121,7 +232,19 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
         selectedMessage ? "hidden lg:flex lg:w-96 lg:flex-none" : "flex"
       )}>
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <h2 className="font-bold text-lg capitalize">{folder}</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="font-bold text-lg capitalize">{folder}</h2>
+            <button 
+              onClick={() => {
+                const unread = filteredMessages.filter(m => !m.isRead);
+                unread.forEach(m => toggleReadStatus(m));
+              }}
+              className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-blue-400 transition-colors"
+              title="Mark all as read"
+            >
+              Mark all read
+            </button>
+          </div>
           <span className="text-xs text-slate-500 font-medium bg-slate-800 px-2 py-1 rounded-full">
             {filteredMessages.length} Messages
           </span>
@@ -169,20 +292,40 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                 >
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2 truncate flex-1">
-                      {!msg.isRead && <div className="w-2 h-2 rounded-full bg-blue-500 flex-none" />}
-                      <span className={cn("text-sm font-semibold truncate", !msg.isRead ? "text-white" : "text-slate-300")}>
+                      {!msg.isRead && <div className="w-2 h-2 rounded-full bg-blue-500 flex-none shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
+                      <span className={cn("text-sm truncate transition-colors", !msg.isRead ? "text-white font-bold" : "text-slate-400 font-medium")}>
                         {msg.from}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-500 whitespace-nowrap ml-2">
+                    <span className={cn("text-[10px] whitespace-nowrap ml-2 transition-colors", !msg.isRead ? "text-blue-400 font-bold" : "text-slate-500")}>
                       {format(new Date(msg.date), 'MMM d')}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <p className={cn("text-xs truncate mb-1 flex-1", !msg.isRead ? "text-slate-200 font-medium" : "text-slate-400")}>
+                    <p className={cn("text-xs truncate mb-1 flex-1 transition-colors", !msg.isRead ? "text-slate-100 font-semibold" : "text-slate-500")}>
                       {msg.subject}
                     </p>
                     <div className="flex items-center gap-1 flex-none">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleReadStatus(msg);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all"
+                        title={msg.isRead ? "Mark as unread" : "Mark as read"}
+                      >
+                        {msg.isRead ? <Mail size={14} /> : <MailOpen size={14} />}
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowSnoozeModal(msg.id);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-all"
+                        title="Snooze"
+                      >
+                        <Clock size={14} />
+                      </button>
                       {msg.priority === 'urgent' && <AlertCircle size={12} className="text-red-500" />}
                       {msg.priority === 'low' && <ArrowDown size={12} className="text-slate-500" />}
                       {msg.attachments && msg.attachments.length > 0 && <Paperclip size={12} className="text-slate-500" />}
@@ -232,6 +375,21 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                 >
                   <Sparkles size={16} className={cn(isSummarizing && "animate-pulse")} />
                   {isSummarizing ? "Summarizing..." : "Summarize"}
+                </button>
+                <button 
+                  onClick={() => toggleReadStatus(selectedMessage)}
+                  disabled={isUpdatingFlags}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  title={selectedMessage.isRead ? "Mark as unread" : "Mark as read"}
+                >
+                  {selectedMessage.isRead ? <Mail size={18} /> : <MailOpen size={18} />}
+                </button>
+                <button 
+                  onClick={() => setShowSnoozeModal(selectedMessage.id)}
+                  className="p-2 text-slate-400 hover:text-yellow-400 hover:bg-slate-800 rounded-lg transition-all"
+                  title="Snooze"
+                >
+                  <Clock size={18} />
                 </button>
                 <button className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all">
                   <Star size={18} />
@@ -339,6 +497,52 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
           </div>
         )}
       </div>
+
+      {/* Snooze Modal */}
+      <AnimatePresence>
+        {showSnoozeModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xs overflow-hidden shadow-2xl"
+            >
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Clock size={16} className="text-yellow-500" />
+                  Snooze until...
+                </h3>
+                <button onClick={() => setShowSnoozeModal(null)} className="text-slate-500 hover:text-white">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-2">
+                {[
+                  { label: 'Later today', time: '6:00 PM', icon: <Sun size={14} /> },
+                  { label: 'Tomorrow', time: '8:00 AM', icon: <ArrowRight size={14} /> },
+                  { label: 'This weekend', time: 'Sat 10:00 AM', icon: <Star size={14} /> },
+                  { label: 'Next week', time: 'Mon 8:00 AM', icon: <ChevronRight size={14} /> },
+                ].map((option, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => handleSnooze(showSnoozeModal, option.label)}
+                    className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-800 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="text-slate-500 group-hover:text-yellow-500 transition-colors">
+                        {option.icon}
+                      </div>
+                      <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{option.label}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-600 uppercase font-bold">{option.time}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

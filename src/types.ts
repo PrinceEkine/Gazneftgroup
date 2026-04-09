@@ -26,6 +26,7 @@ export interface EmailMessage {
   body: string;
   isRead: boolean;
   folder: 'inbox' | 'sent' | 'drafts' | 'trash' | 'spam';
+  snoozedUntil?: string;
   priority?: 'urgent' | 'normal' | 'low';
   smartReplies?: string[];
   attachments?: {
@@ -49,6 +50,7 @@ export interface EmailTemplate {
   name: string;
   subject: string;
   body: string;
+  replyTo?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -124,20 +124,73 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
           >
             <div className="absolute inset-0 bg-blue-600/20 blur-[100px] -z-10 rounded-full" />
             
-            {/* Hero Image */}
+            {/* Hero Visual Area */}
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1, delay: 0.4 }}
-              className="mb-16 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] group"
+              className="mb-16 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] group relative"
             >
               <img 
                 src="https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2029&auto=format&fit=crop" 
-                alt="Gazneftgroups Dashboard" 
-                className="w-full h-[500px] object-cover opacity-70 dark:opacity-70 group-hover:opacity-100 transition-all duration-1000 group-hover:scale-105"
+                alt="Gazneftgroups Dashboard Background" 
+                className="w-full h-[400px] md:h-[500px] object-cover opacity-40 dark:opacity-30 group-hover:opacity-50 transition-all duration-1000 group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-950 via-transparent to-transparent opacity-60" />
+              <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-950 via-transparent to-transparent" />
+              
+              {/* Floating AI Badges */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="relative w-full h-full max-w-4xl mx-auto">
+                  <motion.div 
+                    animate={{ y: [0, -10, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute top-[20%] left-[10%] p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-blue-500/30 shadow-2xl flex items-center gap-3"
+                  >
+                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                      <Sparkles size={16} className="text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-0.5">AI Priority</p>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">Urgent: Action Required</p>
+                    </div>
+                  </motion.div>
+
+                  <motion.div 
+                    animate={{ y: [0, 10, 0] }}
+                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                    className="absolute bottom-[30%] right-[5%] p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-purple-500/30 shadow-2xl flex items-center gap-3"
+                  >
+                    <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                      <MessageSquare size={16} className="text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-purple-500 mb-0.5">Smart Summary</p>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">"Meeting moved to 3 PM..."</p>
+                    </div>
+                  </motion.div>
+
+                  <motion.div 
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                    className="absolute top-[50%] right-[15%] p-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-xl border border-green-500/30 shadow-2xl flex items-center gap-2"
+                  >
+                    <ShieldCheck size={14} className="text-green-500" />
+                    <span className="text-[10px] font-bold text-slate-900 dark:text-white">Deliverability: 99.9%</span>
+                  </motion.div>
+                </div>
+              </div>
+
+              {/* Central Text Overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                <h3 className="text-2xl md:text-4xl font-display text-slate-900 dark:text-white mb-4 uppercase tracking-tight max-w-2xl">
+                  Your Entire Inbox, <br />
+                  <span className="text-blue-600 dark:text-blue-400">Reimagined with AI.</span>
+                </h3>
+                <p className="text-sm md:text-base text-slate-600 dark:text-slate-400 max-w-md font-medium">
+                  Experience the first webmail client designed for the modern era of intelligence and speed.
+                </p>
+              </div>
             </motion.div>
 
             <div className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-2 shadow-2xl overflow-hidden aspect-[16/10]">

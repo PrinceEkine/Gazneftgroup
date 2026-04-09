@@ -171,29 +171,32 @@ async function startServer() {
         // Fetch last 'limit' messages using sequence range
         const status = await client.status(folder, { messages: true });
         const totalMessages = status.messages || 0;
-        const start = Math.max(1, totalMessages - limit + 1);
-        const range = `${start}:*`;
+        
+        if (totalMessages > 0) {
+          const start = Math.max(1, totalMessages - limit + 1);
+          const range = `${start}:*`;
 
-        for await (const msg of client.fetch(range, { envelope: true, source: true })) {
-          const parsed = await simpleParser(msg.source);
-          messages.push({
-            uid: msg.uid,
-            seq: msg.seq,
-            subject: parsed.subject,
-            from: parsed.from?.text,
-            to: parsed.to?.text,
-            date: parsed.date,
-            snippet: parsed.text?.substring(0, 100),
-            body: parsed.html || parsed.textAsHtml || parsed.text,
-            isRead: msg.flags.has("\\Seen"),
-            attachments: parsed.attachments.map(att => ({
-              filename: att.filename,
-              contentType: att.contentType,
-              size: att.size,
-              contentId: att.contentId,
-              url: `data:${att.contentType};base64,${att.content.toString('base64')}`
-            }))
-          });
+          for await (const msg of client.fetch(range, { envelope: true, source: true })) {
+            const parsed = await simpleParser(msg.source);
+            messages.push({
+              uid: msg.uid,
+              seq: msg.seq,
+              subject: parsed.subject,
+              from: parsed.from?.text,
+              to: parsed.to?.text,
+              date: parsed.date,
+              snippet: parsed.text?.substring(0, 100),
+              body: parsed.html || parsed.textAsHtml || parsed.text,
+              isRead: msg.flags ? msg.flags.has("\\Seen") : false,
+              attachments: parsed.attachments.map(att => ({
+                filename: att.filename,
+                contentType: att.contentType,
+                size: att.size,
+                contentId: att.contentId,
+                url: `data:${att.contentType};base64,${att.content.toString('base64')}`
+              }))
+            });
+          }
         }
       } finally {
         lock.release();
@@ -209,7 +212,7 @@ async function startServer() {
 
   // API: Update Email Flags (Mark as Read/Unread)
   app.post("/api/update-flags", async (req, res) => {
-    const { imapConfig, uid, flags, action, authType, accessToken, refreshToken } = req.body;
+    const { imapConfig, uid, flags, action, folder = "INBOX", authType, accessToken, refreshToken } = req.body;
 
     if (!imapConfig || !uid || !flags || !action) {
       return res.status(400).json({ error: "Missing required parameters" });
@@ -243,7 +246,7 @@ async function startServer() {
 
     try {
       await client.connect();
-      const lock = await client.getMailboxLock("INBOX"); // Defaulting to INBOX for now, could be passed
+      const lock = await client.getMailboxLock(folder);
       try {
         if (action === 'add') {
           await client.messageFlagsAdd({ uid }, flags);

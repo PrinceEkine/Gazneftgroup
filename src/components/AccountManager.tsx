@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Shield, Mail, Server, Key, CheckCircle2, AlertCircle, RefreshCw, Chrome } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { EmailAccount } from '../types';
@@ -216,29 +216,12 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {confirmDelete === acc.id ? (
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => handleDeleteAccount(acc.id)}
-                            className="text-red-400 text-xs font-bold uppercase hover:underline"
-                          >
-                            Confirm
-                          </button>
-                          <button 
-                            onClick={() => setConfirmDelete(null)}
-                            className="text-slate-500 text-xs font-bold uppercase hover:underline"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={() => setConfirmDelete(acc.id)}
-                          className="text-slate-500 hover:text-red-400 p-2 opacity-0 group-hover:opacity-100 transition-all"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => setConfirmDelete(acc.id)}
+                        className="text-slate-500 hover:text-red-400 p-2 opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -407,6 +390,46 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
             </form>
           )}
         </div>
+
+        <AnimatePresence>
+          {confirmDelete && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[60] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-sm w-full shadow-2xl text-center"
+              >
+                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+                  <AlertCircle size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Delete Account?</h3>
+                <p className="text-slate-400 text-sm mb-6">
+                  Are you sure you want to delete this account? This action cannot be undone.
+                </p>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setConfirmDelete(null)}
+                    className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteAccount(confirmDelete)}
+                    className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-all"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

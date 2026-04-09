@@ -80,6 +80,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
           uid: msg.id, // In our types, id is msg.uid
           flags: ["\\Seen"],
           action: newReadStatus ? 'add' : 'remove',
+          folder: folder.toUpperCase(),
           authType: acc.authType,
           accessToken: acc.accessToken,
           refreshToken: acc.refreshToken
@@ -281,11 +282,19 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
           ) : (
             <div className="divide-y divide-slate-800/50">
               {filteredMessages.map(msg => (
-                <button 
-                  key={msg.id}
+                <div 
+                  key={`${msg.accountId}-${msg.id}`}
                   onClick={() => setSelectedMessage(msg)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedMessage(msg);
+                    }
+                  }}
                   className={cn(
-                    "w-full text-left p-4 hover:bg-slate-800/50 transition-all group relative",
+                    "w-full text-left p-4 hover:bg-slate-800/50 transition-all group relative cursor-pointer outline-none focus:bg-slate-800/70",
                     selectedMessage?.id === msg.id && "bg-blue-600/10 border-l-2 border-blue-500",
                     !msg.isRead && "bg-slate-800/20"
                   )}
@@ -340,7 +349,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                   <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                     {msg.snippet}
                   </p>
-                </button>
+                </div>
               ))}
             </div>
           )}

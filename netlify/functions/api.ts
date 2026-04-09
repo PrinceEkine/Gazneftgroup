@@ -18,7 +18,7 @@ const oauth2Client = new google.auth.OAuth2(
   `${process.env.APP_URL}/api/auth/google/callback`
 );
 
-app.get("/api/auth/google/url", (req, res) => {
+app.get("/auth/google/url", (req, res) => {
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
@@ -31,7 +31,7 @@ app.get("/api/auth/google/url", (req, res) => {
   res.json({ url });
 });
 
-app.get("/api/auth/google/callback", async (req, res) => {
+app.get("/auth/google/callback", async (req, res) => {
   const { code } = req.query;
   try {
     const { tokens } = await oauth2Client.getToken(code as string);
@@ -64,7 +64,7 @@ app.get("/api/auth/google/callback", async (req, res) => {
 });
 
 // API: Send Email (SMTP Proxy)
-app.post("/api/send-email", async (req, res) => {
+app.post("/send-email", async (req, res) => {
   const { smtpConfig, mailOptions, authType, accessToken, refreshToken } = req.body;
   if (!smtpConfig || !mailOptions) return res.status(400).json({ error: "Missing config" });
 
@@ -100,7 +100,7 @@ app.post("/api/send-email", async (req, res) => {
 });
 
 // API: Fetch Emails (IMAP Proxy)
-app.post("/api/fetch-emails", async (req, res) => {
+app.post("/fetch-emails", async (req, res) => {
   const { imapConfig, folder = "INBOX", limit = 20, authType, accessToken, refreshToken } = req.body;
   if (!imapConfig) return res.status(400).json({ error: "Missing config" });
 
@@ -177,7 +177,7 @@ app.post("/api/fetch-emails", async (req, res) => {
 });
 
 // API: Update Email Flags (Mark as Read/Unread)
-app.post("/api/update-flags", async (req, res) => {
+app.post("/update-flags", async (req, res) => {
   const { imapConfig, uid, flags, action, authType, accessToken, refreshToken } = req.body;
 
   if (!imapConfig || !uid || !flags || !action) {
@@ -232,7 +232,7 @@ app.post("/api/update-flags", async (req, res) => {
 });
 
 // API: Test Connection
-app.post("/api/test-connection", async (req, res) => {
+app.post("/test-connection", async (req, res) => {
   const { config, type } = req.body;
   try {
     if (type === "smtp") {
@@ -259,6 +259,10 @@ app.post("/api/test-connection", async (req, res) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 export const handler = serverless(app);

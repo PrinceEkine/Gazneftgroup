@@ -75,10 +75,18 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
   const connectWithGoogle = async () => {
     try {
       const response = await fetch('/api/auth/google/url');
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Server returned non-JSON response:", text);
+        setStatus({ type: 'error', message: "Backend error: The server returned an invalid response. Please ensure your Netlify Functions are deployed correctly." });
+        return;
+      }
       const { url } = await response.json();
       window.open(url, 'google_auth', 'width=600,height=700');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to get Google auth URL", error);
+      setStatus({ type: 'error', message: "Failed to connect to backend: " + error.message });
     }
   };
 

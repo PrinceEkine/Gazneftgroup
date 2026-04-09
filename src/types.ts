@@ -54,3 +54,16 @@ export interface EmailTemplate {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface EmailDraft {
+  id: string;
+  accountId: string;
+  userId: string;
+  to: string;
+  replyTo?: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  type: 'draft';
+}

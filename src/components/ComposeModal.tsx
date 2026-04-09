@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { X, Send, Paperclip, Image, Smile, MoreHorizontal, Trash2, ChevronDown, FileText, Save, Loader2, Mail, ShieldCheck, AlertTriangle, CheckCircle2, Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Code } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { EmailAccount, EmailTemplate } from '../types';
+import { EmailAccount, EmailTemplate, EmailDraft } from '../types';
 import { cn } from '../lib/utils';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import TemplateSelector from './TemplateSelector';
 import { GoogleGenAI } from "@google/genai";
@@ -12,6 +12,7 @@ interface Props {
   accounts: EmailAccount[];
   onClose: () => void;
   user: any;
+  initialDraft?: EmailDraft;
 }
 
 interface Attachment {
@@ -26,12 +27,13 @@ interface DeliverabilityAnalysis {
   spammyWordsFound: string[];
 }
 
-export default function ComposeModal({ accounts, onClose, user }: Props) {
-  const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
-  const [to, setTo] = useState('');
-  const [replyTo, setReplyTo] = useState('');
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
+export default function ComposeModal({ accounts, onClose, user, initialDraft }: Props) {
+  const [selectedAccountId, setSelectedAccountId] = useState(initialDraft?.accountId || accounts[0]?.id || '');
+  const [to, setTo] = useState(initialDraft?.to || '');
+  const [toInput, setToInput] = useState('');
+  const [replyTo, setReplyTo] = useState(initialDraft?.replyTo || '');
+  const [subject, setSubject] = useState(initialDraft?.subject || '');
+  const [body, setBody] = useState(initialDraft?.body || '');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
@@ -40,10 +42,57 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [isHtmlMode, setIsHtmlMode] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(initialDraft?.id || null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+
+  // Auto-save draft logic
+  useEffect(() => {
+    if (!user || (!to && !subject && !body)) return;
+
+    const saveDraft = async () => {
+      setSaveStatus('saving');
+      try {
+        const draftData = {
+          accountId: selectedAccountId,
+          to,
+          replyTo,
+          subject,
+          body,
+          updatedAt: new Date().toISOString(),
+          userId: user.uid,
+          type: 'draft'
+        };
+
+        if (draftId) {
+          await setDoc(doc(db, 'users', user.uid, 'drafts', draftId), draftData, { merge: true });
+        } else {
+          const docRef = await addDoc(collection(db, 'users', user.uid, 'drafts'), {
+            ...draftData,
+            createdAt: new Date().toISOString()
+          });
+          setDraftId(docRef.id);
+        }
+        setSaveStatus('saved');
+        setLastSaved(new Date());
+      } catch (error) {
+        console.error("Error saving draft:", error);
+        setSaveStatus('error');
+      }
+    };
+
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(saveDraft, 2000); // Save after 2 seconds of inactivity
+
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [to, subject, body, replyTo, selectedAccountId, user, draftId]);
 
   useEffect(() => {
     if (editorRef.current && !isHtmlMode) {
@@ -171,6 +220,30 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
     setShowTemplateSelector(false);
   };
 
+  const recipients = useMemo(() => to.split(',').map(r => r.trim()).filter(r => r.length > 0), [to]);
+
+  const addRecipient = (email: string) => {
+    const trimmed = email.trim().replace(/,$/, '');
+    if (trimmed && !recipients.includes(trimmed)) {
+      setTo(prev => prev ? `${prev}, ${trimmed}` : trimmed);
+    }
+    setToInput('');
+  };
+
+  const removeRecipient = (email: string) => {
+    const newRecipients = recipients.filter(r => r !== email);
+    setTo(newRecipients.join(', '));
+  };
+
+  const handleToKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addRecipient(toInput);
+    } else if (e.key === 'Backspace' && !toInput && recipients.length > 0) {
+      removeRecipient(recipients[recipients.length - 1]);
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAccount) return;
@@ -216,6 +289,15 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
 
       const data = await response.json();
       if (data.success) {
+        // Delete draft if it exists
+        if (draftId) {
+          try {
+            await deleteDoc(doc(db, 'users', user.uid, 'drafts', draftId));
+          } catch (err) {
+            console.error("Failed to delete draft after sending:", err);
+          }
+        }
+        
         setStatus({ type: 'success', message: `Message sent successfully to ${recipients.length} recipient(s)!` });
         setTimeout(onClose, 2000);
       } else {
@@ -228,6 +310,22 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
     }
   };
 
+  const handleDiscard = async () => {
+    if (draftId) {
+      if (confirm("Are you sure you want to discard this draft?")) {
+        try {
+          await deleteDoc(doc(db, 'users', user.uid, 'drafts', draftId));
+          onClose();
+        } catch (err) {
+          console.error("Failed to delete draft:", err);
+          onClose();
+        }
+      }
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-sm">
       <motion.div 
@@ -237,7 +335,30 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-2xl sm:rounded-2xl w-full max-w-3xl flex flex-col shadow-2xl h-[95vh] sm:h-[85vh] max-h-[95vh] sm:max-h-[85vh] overflow-hidden"
       >
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/50 rounded-t-2xl flex-none">
-          <h2 className="font-bold text-slate-900 dark:text-white">New Message</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="font-bold text-slate-900 dark:text-white">New Message</h2>
+            <AnimatePresence>
+              {saveStatus !== 'idle' && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                >
+                  {saveStatus === 'saving' ? (
+                    <Loader2 size={10} className="animate-spin text-blue-500" />
+                  ) : saveStatus === 'saved' ? (
+                    <CheckCircle2 size={10} className="text-green-500" />
+                  ) : (
+                    <AlertTriangle size={10} className="text-red-500" />
+                  )}
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Draft Saved' : 'Save Error'}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <div className="flex items-center gap-2">
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all">
               <X size={20} />
@@ -286,16 +407,34 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" size={16} />
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-slate-500 w-12">To</span>
-                  <input 
-                    type="text" 
-                    placeholder="recipients@example.com (separate with commas)"
-                    value={to}
-                    onChange={e => setTo(e.target.value)}
-                    className="flex-1 bg-transparent border-none text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-0"
-                    required
-                  />
+                <div className="flex items-start gap-4">
+                  <span className="text-sm text-slate-500 w-12 pt-2">To</span>
+                  <div className="flex-1 flex flex-wrap gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 min-h-[40px]">
+                    {recipients.map(email => (
+                      <span 
+                        key={email} 
+                        className="flex items-center gap-1.5 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded-md transition-all animate-in fade-in zoom-in duration-200"
+                      >
+                        {email}
+                        <button 
+                          type="button"
+                          onClick={() => removeRecipient(email)}
+                          className="hover:bg-white/20 rounded-full p-0.5 transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                    <input 
+                      type="text" 
+                      placeholder={recipients.length === 0 ? "recipients@example.com" : ""}
+                      value={toInput}
+                      onChange={e => setToInput(e.target.value)}
+                      onKeyDown={handleToKeyDown}
+                      onBlur={() => addRecipient(toInput)}
+                      className="flex-1 bg-transparent border-none text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-0 min-w-[120px] p-0"
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 border-t border-slate-100 dark:border-slate-800/50 pt-4">
                   <span className="text-sm text-slate-500 w-12">Reply-To</span>
@@ -516,7 +655,7 @@ export default function ComposeModal({ accounts, onClose, user }: Props) {
                 <div className="flex items-center gap-4">
                   <button 
                     type="button"
-                    onClick={onClose}
+                    onClick={handleDiscard}
                     className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
                   >
                     <Trash2 size={20} />

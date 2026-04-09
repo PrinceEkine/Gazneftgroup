@@ -2,19 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { Mail, Star, Paperclip, Clock, ChevronRight, Inbox, Trash2, RefreshCw, Sparkles, AlertCircle, ArrowDown, Send, FileText, MailOpen, X, Sun, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
-import { EmailAccount, EmailMessage } from '../types';
+import { EmailAccount, EmailMessage, EmailDraft } from '../types';
 import { cn } from '../lib/utils';
 import { summarizeEmail, detectPriority, generateSmartReplies } from '../services/geminiService';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db, auth } from '../lib/firebase';
 
 interface Props {
   accountId: string | 'all';
   folder: string;
   searchQuery: string;
   accounts: EmailAccount[];
+  onOpenDraft?: (draft: EmailDraft) => void;
 }
 
-export default function InboxView({ accountId, folder, searchQuery, accounts }: Props) {
+export default function InboxView({ accountId, folder, searchQuery, accounts, onOpenDraft }: Props) {
   const [messages, setMessages] = useState<EmailMessage[]>([]);
+  const [firestoreDrafts, setFirestoreDrafts] = useState<EmailDraft[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<EmailMessage | null>(null);
@@ -27,6 +31,26 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
 
   useEffect(() => {
     fetchMessages();
+  }, [accountId, folder]);
+
+  // Fetch Firestore drafts
+  useEffect(() => {
+    if (!auth.currentUser || folder !== 'drafts') {
+      setFirestoreDrafts([]);
+      return;
+    }
+
+    const draftsRef = collection(db, 'users', auth.currentUser.uid, 'drafts');
+    const q = accountId === 'all' 
+      ? query(draftsRef)
+      : query(draftsRef, where('accountId', '==', accountId));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const drafts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmailDraft));
+      setFirestoreDrafts(drafts);
+    });
+
+    return unsubscribe;
   }, [accountId, folder]);
 
   useEffect(() => {
@@ -243,14 +267,19 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
           new Date(b.date).getTime() - new Date(a.date).getTime()
         );
 
-        // Fetch priorities for the first 5 messages
-        const prioritizedMessages = await Promise.all(sortedMessages.map(async (msg, idx) => {
-          if (idx < 5) {
+        // Fetch priorities for the first 5 messages sequentially to avoid rate limits
+        const prioritizedMessages = [...sortedMessages];
+        for (let i = 0; i < Math.min(5, prioritizedMessages.length); i++) {
+          const msg = prioritizedMessages[i];
+          try {
             const priority = await detectPriority(msg.subject, msg.body);
-            return { ...msg, priority };
+            prioritizedMessages[i] = { ...msg, priority };
+            // Small delay between requests to be safe
+            if (i < 4) await new Promise(resolve => setTimeout(resolve, 500));
+          } catch (err) {
+            console.warn(`Failed to detect priority for message ${i}:`, err);
           }
-          return msg;
-        }));
+        }
 
         setMessages(prioritizedMessages);
         if (errors.length > 0) {
@@ -284,6 +313,24 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
     return matchesSearch;
   });
 
+  const allDisplayMessages = [
+    ...filteredMessages,
+    ...(folder === 'drafts' ? firestoreDrafts.map(d => ({
+      id: d.id,
+      accountId: d.accountId,
+      subject: d.subject || '(No Subject)',
+      from: 'Draft',
+      to: d.to,
+      date: d.updatedAt,
+      snippet: d.body.replace(/<[^>]*>/g, '').substring(0, 100),
+      body: d.body,
+      isRead: true,
+      folder: 'drafts' as const,
+      isFirestoreDraft: true,
+      draftData: d
+    })) : [])
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Message List */}
@@ -296,8 +343,8 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
             <h2 className="font-bold text-lg capitalize text-slate-900 dark:text-white">{folder}</h2>
             <button 
               onClick={() => {
-                const unread = filteredMessages.filter(m => !m.isRead);
-                unread.forEach(m => toggleReadStatus(m));
+                const unread = allDisplayMessages.filter(m => !m.isRead);
+                unread.forEach(m => toggleReadStatus(m as any));
               }}
               className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               title="Mark all as read"
@@ -306,12 +353,12 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
             </button>
           </div>
           <span className="text-xs text-slate-500 font-medium bg-slate-200 dark:bg-slate-800 px-2 py-1 rounded-full">
-            {filteredMessages.length} Messages
+            {allDisplayMessages.length} Messages
           </span>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {loading ? (
+          {loading && allDisplayMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
               <RefreshCw className="animate-spin" size={24} />
               <p className="text-sm">Fetching your mail...</p>
@@ -330,7 +377,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                 Try Again
               </button>
             </div>
-          ) : filteredMessages.length === 0 ? (
+          ) : allDisplayMessages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500 p-8 text-center">
               <Inbox size={48} className="opacity-20" />
               <div>
@@ -340,16 +387,26 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
             </div>
           ) : (
             <div className="divide-y divide-slate-200 dark:divide-slate-800/50">
-              {filteredMessages.map(msg => (
+              {allDisplayMessages.map((msg: any) => (
                 <div 
-                  key={`${msg.accountId}-${msg.id}`}
-                  onClick={() => setSelectedMessage(msg)}
+                  key={msg.id}
+                  onClick={() => {
+                    if (msg.isFirestoreDraft && onOpenDraft) {
+                      onOpenDraft(msg.draftData);
+                    } else {
+                      setSelectedMessage(msg);
+                    }
+                  }}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      setSelectedMessage(msg);
+                      if (msg.isFirestoreDraft && onOpenDraft) {
+                        onOpenDraft(msg.draftData);
+                      } else {
+                        setSelectedMessage(msg);
+                      }
                     }
                   }}
                   className={cn(
@@ -364,6 +421,9 @@ export default function InboxView({ accountId, folder, searchQuery, accounts }: 
                       <span className={cn("text-sm truncate transition-colors", !msg.isRead ? "text-slate-900 dark:text-white font-bold" : "text-slate-600 dark:text-slate-400 font-medium")}>
                         {msg.from}
                       </span>
+                      {msg.isFirestoreDraft && (
+                        <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-black uppercase tracking-widest">Local Draft</span>
+                      )}
                     </div>
                     <span className={cn("text-[10px] whitespace-nowrap ml-2 transition-colors", !msg.isRead ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-500")}>
                       {format(new Date(msg.date), 'MMM d')}

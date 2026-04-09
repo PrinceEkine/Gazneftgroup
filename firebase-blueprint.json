@@ -69,6 +69,24 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "subject", "body"]
+    },
+    "EmailDraft": {
+      "title": "Email Draft",
+      "description": "Unsent email drafts saved by the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "accountId": { "type": "string" },
+        "userId": { "type": "string" },
+        "to": { "type": "string" },
+        "replyTo": { "type": "string" },
+        "subject": { "type": "string" },
+        "body": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["draft"] }
+      },
+      "required": ["userId", "accountId"]
     }
   },
   "firestore": {
@@ -87,6 +105,10 @@
     "/users/{uid}/templates/{templateId}": {
       "schema": "EmailTemplate",
       "description": "Reusable email templates for a user."
+    },
+    "/users/{uid}/drafts/{draftId}": {
+      "schema": "EmailDraft",
+      "description": "Unsent email drafts for a user."
     }
   }
 }

@@ -53,6 +53,14 @@ service cloud.firestore {
              data.body is string && data.body.size() < 50000;
     }
 
+    function isValidDraft(data) {
+      return data.keys().hasAll(['accountId', 'userId']) &&
+             data.userId == request.auth.uid &&
+             (!('subject' in data) || (data.subject is string && data.subject.size() < 1000)) &&
+             (!('body' in data) || (data.body is string && data.body.size() < 100000)) &&
+             (!('to' in data) || (data.to is string && data.to.size() < 1000));
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -79,6 +87,13 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidTemplate(request.resource.data);
         allow update: if isOwner(userId) && isValidTemplate(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /drafts/{draftId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidDraft(request.resource.data);
+        allow update: if isOwner(userId) && isValidDraft(request.resource.data);
         allow delete: if isOwner(userId);
       }
     }

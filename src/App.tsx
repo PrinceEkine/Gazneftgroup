@@ -38,7 +38,7 @@ import {
 import { collection, onSnapshot, query, where, doc, getDoc, setDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
-import { EmailAccount, EmailMessage } from './types';
+import { EmailAccount, EmailMessage, EmailDraft } from './types';
 import AccountManager from './components/AccountManager';
 import InboxView from './components/InboxView';
 import ComposeModal from './components/ComposeModal';
@@ -55,6 +55,7 @@ export default function App() {
   const [activeFolder, setActiveFolder] = useState<string>('inbox');
   const [isAccountManagerOpen, setIsAccountManagerOpen] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [draftToEdit, setDraftToEdit] = useState<EmailDraft | undefined>(undefined);
   const [isDeliverabilityGuideOpen, setIsDeliverabilityGuideOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -453,6 +454,10 @@ export default function App() {
             folder={activeFolder} 
             searchQuery={searchQuery}
             accounts={accounts}
+            onOpenDraft={(draft) => {
+              setDraftToEdit(draft);
+              setIsComposeOpen(true);
+            }}
           />
         </div>
       </main>
@@ -469,8 +474,12 @@ export default function App() {
         {isComposeOpen && (
           <ComposeModal 
             accounts={accounts} 
-            onClose={() => setIsComposeOpen(false)} 
+            onClose={() => {
+              setIsComposeOpen(false);
+              setDraftToEdit(undefined);
+            }} 
             user={user}
+            initialDraft={draftToEdit}
           />
         )}
         {isDeliverabilityGuideOpen && (

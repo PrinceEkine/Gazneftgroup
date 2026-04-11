@@ -168,6 +168,17 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
     const files = e.target.files;
     if (!files) return;
 
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+    const largeFiles = Array.from(files).filter(file => file.size > MAX_FILE_SIZE);
+    
+    if (largeFiles.length > 0) {
+      setStatus({ 
+        type: 'error', 
+        message: `Some files are too large (max 20MB): ${largeFiles.map(f => f.name).join(', ')}` 
+      });
+      return;
+    }
+
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -276,7 +287,8 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
             attachments: attachments.map(att => ({
               filename: att.file.name,
               content: att.base64,
-              encoding: 'base64'
+              encoding: 'base64',
+              contentType: att.file.type
             }))
           }
         })

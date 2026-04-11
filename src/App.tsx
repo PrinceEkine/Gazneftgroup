@@ -301,13 +301,6 @@ export default function App() {
             )}
           </div>
 
-          <div className="mt-8 p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl text-left">
-            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Deployment Note</p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-              If deploying to Netlify, ensure <span className="text-blue-600 dark:text-blue-400">gazneftgroup.netlify.app</span> is added to Firebase Authorized Domains and <span className="text-blue-600 dark:text-blue-400">https://gazneftgroup.netlify.app/api/auth/google/callback</span> is added to Google OAuth Redirect URIs.
-            </p>
-          </div>
-
           <div className="mt-6">
             <button 
               onClick={() => setShowPrivacy(true)}

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Star, Paperclip, Clock, ChevronRight, Inbox, Trash2, RefreshCw, Sparkles, AlertCircle, ArrowDown, Send, FileText, MailOpen, X, Sun, ArrowRight } from 'lucide-react';
+import { Mail, Star, Paperclip, Clock, ChevronRight, Inbox, Trash2, RefreshCw, Sparkles, AlertCircle, ArrowDown, Send, FileText, MailOpen, X, Sun, ArrowRight, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { EmailAccount, EmailMessage, EmailDraft } from '../types';
 import { cn } from '../lib/utils';
 import { summarizeEmail, detectPriority, generateSmartReplies } from '../services/geminiService';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 
 interface Props {
@@ -27,10 +27,14 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [isGeneratingReplies, setIsGeneratingReplies] = useState(false);
   const [isUpdatingFlags, setIsUpdatingFlags] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [showSnoozeModal, setShowSnoozeModal] = useState<string | null>(null);
+  const [limit, setLimit] = useState(20);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
   useEffect(() => {
-    fetchMessages();
+    setLimit(20); // Reset limit when account or folder changes
+    fetchMessages(20);
   }, [accountId, folder]);
 
   // Fetch Firestore drafts
@@ -230,16 +234,42 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
     }
     setShowSnoozeModal(null);
   };
+  
+  const handleSaveAsTemplate = async (msg: EmailMessage) => {
+    if (!auth.currentUser) return;
+    
+    const templateName = prompt("Enter a name for this template:", msg.subject);
+    if (!templateName) return;
 
-  const fetchMessages = async () => {
+    setIsSavingTemplate(true);
+    try {
+      await addDoc(collection(db, 'users', auth.currentUser.uid, 'templates'), {
+        name: templateName,
+        subject: msg.subject,
+        body: msg.body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      alert("Template saved successfully!");
+    } catch (error: any) {
+      console.error("Failed to save template", error);
+      alert("Failed to save template: " + error.message);
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const fetchMessages = async (currentLimit = limit) => {
     if (folder === 'snoozed') {
-      if (messages.length > 0) {
+      if (messages.length > 0 && currentLimit === 20) {
         setLoading(false);
         return;
       }
     }
 
-    setLoading(true);
+    if (currentLimit === 20) setLoading(true);
+    else setIsFetchingMore(true);
+
     setError(null);
     try {
       const targetAccounts = accountId === 'all' ? accounts : accounts.filter(a => a.id === accountId);
@@ -247,6 +277,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
       if (targetAccounts.length === 0) {
         setMessages([]);
         setLoading(false);
+        setIsFetchingMore(false);
         return;
       }
 
@@ -283,7 +314,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
               accessToken: acc.accessToken,
               refreshToken: acc.refreshToken,
               folder: imapFolder,
-              limit: 20
+              limit: currentLimit
             })
           });
 
@@ -333,7 +364,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
         );
 
         setMessages(sortedMessages);
-        setLoading(false); // Stop loading early
+        setLoading(false);
 
         // Background: Fetch priorities for the first 5 messages
         (async () => {
@@ -397,7 +428,14 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
       setError(error.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
+      setIsFetchingMore(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    const newLimit = limit + 20;
+    setLimit(newLimit);
+    fetchMessages(newLimit);
   };
 
   const filteredMessages = messages.filter(m => {
@@ -476,7 +514,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
                 <p className="text-sm opacity-80">{error}</p>
               </div>
               <button 
-                onClick={fetchMessages}
+                onClick={() => fetchMessages()}
                 className="mt-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-xs font-bold uppercase tracking-wider transition-all"
               >
                 Try Again
@@ -575,6 +613,28 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
                   </p>
                 </div>
               ))}
+              
+              {allDisplayMessages.length >= limit && (
+                <div className="p-4 flex justify-center">
+                  <button 
+                    onClick={handleLoadMore}
+                    disabled={isFetchingMore}
+                    className="flex items-center gap-2 px-6 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+                  >
+                    {isFetchingMore ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowDown size={14} />
+                        Load More Messages
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -608,6 +668,14 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
                 >
                   <Sparkles size={16} className={cn(isSummarizing && "animate-pulse")} />
                   {isSummarizing ? "Summarizing..." : "Summarize"}
+                </button>
+                <button 
+                  onClick={() => handleSaveAsTemplate(selectedMessage)}
+                  disabled={isSavingTemplate}
+                  className="p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all"
+                  title="Save as template"
+                >
+                  {isSavingTemplate ? <RefreshCw className="animate-spin" size={18} /> : <Save size={18} />}
                 </button>
                 <button 
                   onClick={() => toggleReadStatus(selectedMessage)}

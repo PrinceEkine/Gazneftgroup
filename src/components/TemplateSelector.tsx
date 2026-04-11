@@ -16,6 +16,11 @@ export default function TemplateSelector({ user, onSelect, onClose }: Props) {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newSubject, setNewSubject] = useState('');
+  const [newBody, setNewBody] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -38,6 +43,30 @@ export default function TemplateSelector({ user, onSelect, onClose }: Props) {
     }
   };
 
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName || !newSubject || !newBody) return;
+
+    setIsSaving(true);
+    try {
+      await addDoc(collection(db, 'users', user.uid, 'templates'), {
+        name: newName,
+        subject: newSubject,
+        body: newBody,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      setIsCreating(false);
+      setNewName('');
+      setNewSubject('');
+      setNewBody('');
+    } catch (error) {
+      console.error('Failed to create template', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const filteredTemplates = templates.filter(t => 
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.subject.toLowerCase().includes(searchQuery.toLowerCase())
@@ -50,12 +79,78 @@ export default function TemplateSelector({ user, onSelect, onClose }: Props) {
           <FileText size={16} className="text-blue-600 dark:text-blue-500" />
           Email Templates
         </h3>
-        <button onClick={onClose} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
-          <Check size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          {!isCreating && (
+            <button 
+              onClick={() => setIsCreating(true)}
+              className="text-blue-600 dark:text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-500/10 rounded transition-all"
+              title="Create new template"
+            >
+              <Plus size={16} />
+            </button>
+          )}
+          <button onClick={onClose} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+            <Check size={16} />
+          </button>
+        </div>
       </div>
 
-      <div className="p-3 border-b border-slate-200 dark:border-slate-800">
+      {isCreating ? (
+        <form onSubmit={handleCreate} className="p-4 space-y-3 bg-slate-50 dark:bg-slate-950/30">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Template Name</label>
+            <input 
+              type="text" 
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="e.g. Welcome Email"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1.5 px-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Subject</label>
+            <input 
+              type="text" 
+              value={newSubject}
+              onChange={e => setNewSubject(e.target.value)}
+              placeholder="Email subject"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1.5 px-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Body (HTML)</label>
+            <textarea 
+              value={newBody}
+              onChange={e => setNewBody(e.target.value)}
+              placeholder="Email content..."
+              rows={4}
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1.5 px-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none"
+              required
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button 
+              type="button"
+              onClick={() => setIsCreating(false)}
+              className="flex-1 py-2 text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              disabled={isSaving}
+              className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isSaving && <Loader2 size={12} className="animate-spin" />}
+              Save Template
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="p-3 border-b border-slate-200 dark:border-slate-800">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={14} />
           <input 
@@ -100,6 +195,8 @@ export default function TemplateSelector({ user, onSelect, onClose }: Props) {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

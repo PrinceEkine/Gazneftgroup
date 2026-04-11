@@ -626,10 +626,14 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
                     type="button" 
                     onClick={handleSaveTemplate}
                     disabled={isSavingTemplate}
-                    className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50"
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-lg transition-all disabled:opacity-50",
+                      "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
+                    )}
                     title="Save as template"
                   >
-                    {isSavingTemplate ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+                    {isSavingTemplate ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    <span className="text-xs font-medium hidden md:inline">Save Template</span>
                   </button>
 
                   <AnimatePresence>

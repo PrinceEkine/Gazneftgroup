@@ -129,7 +129,7 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
         
         let errorMsg = "Backend error: The server returned an invalid response.";
         if (text.includes("<!DOCTYPE html>")) {
-          errorMsg += " (Received HTML instead of JSON. This usually means the API redirect is not working on Netlify.)";
+          errorMsg += " (Received HTML instead of JSON. This usually means the API endpoint is not reachable or redirected.)";
         } else {
           errorMsg += " (" + text.substring(0, 50) + "...)";
         }

@@ -168,13 +168,13 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
     const files = e.target.files;
     if (!files) return;
 
-    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+    const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB
     const largeFiles = Array.from(files).filter(file => file.size > MAX_FILE_SIZE);
     
     if (largeFiles.length > 0) {
       setStatus({ 
         type: 'error', 
-        message: `Some files are too large (max 20MB): ${largeFiles.map(f => f.name).join(', ')}` 
+        message: `Some files are too large (max 30MB): ${largeFiles.map(f => f.name).join(', ')}` 
       });
       return;
     }
@@ -348,7 +348,7 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
         const text = await response.text();
         console.error("Non-JSON response:", text);
         if (response.status === 413) {
-          throw new Error("File too large. The server or platform (e.g. Netlify) has a limit on attachment size.");
+          throw new Error("File too large. The platform (AI Studio or Netlify) has a limit on attachment size (usually 10-20MB). Please share larger files via a link.");
         }
         throw new Error(`Server error (${response.status}). Ensure the backend is running.`);
       }

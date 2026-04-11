@@ -17,8 +17,19 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+  app.use(express.json({ limit: '150mb' }));
+  app.use(express.urlencoded({ limit: '150mb', extended: true }));
+
+  // Request size logging
+  app.use((req, res, next) => {
+    if (req.method === 'POST') {
+      const size = parseInt(req.headers['content-length'] || '0');
+      if (size > 0) {
+        console.log(`[Server] Incoming POST request to ${req.path} - Size: ${(size / (1024 * 1024)).toFixed(2)} MB`);
+      }
+    }
+    next();
+  });
 
   // Google OAuth Setup
   const getOAuth2Client = () => {

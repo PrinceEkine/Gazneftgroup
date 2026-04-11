@@ -296,7 +296,12 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
 
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned HTML instead of JSON. Ensure the backend is running.");
+        const text = await response.text();
+        console.error("Non-JSON response:", text);
+        if (response.status === 413) {
+          throw new Error("File too large. The server or platform (e.g. Netlify) has a limit on attachment size.");
+        }
+        throw new Error(`Server error (${response.status}). Ensure the backend is running.`);
       }
 
       const data = await response.json();

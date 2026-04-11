@@ -229,7 +229,12 @@ router.post("/send-email", async (req, res) => {
     const info = await transporter.sendMail(mailOptions);
     res.json({ success: true, messageId: info.messageId });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("SMTP Error:", error);
+    let errorMessage = error.message;
+    if (errorMessage.includes("552-5.7.0") || errorMessage.includes("security issue")) {
+      errorMessage = "The email was blocked by the provider (e.g. Gmail) because the attachment contains a potential security risk. This often happens with ZIP files containing scripts (.js), executables (.exe), or other restricted file types. Try removing those files or sharing via a cloud link (Google Drive/Dropbox).";
+    }
+    res.status(500).json({ error: errorMessage });
   }
 });
 

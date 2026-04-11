@@ -179,6 +179,26 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
       return;
     }
 
+    const BLOCKED_EXTENSIONS = [
+      '.ade', '.adp', '.apk', '.appx', '.appxbundle', '.bat', '.cab', '.chm', '.cmd', '.com', '.cpl', 
+      '.dll', '.dmg', '.ex', '.ex_', '.exe', '.hta', '.ins', '.isp', '.iso', '.jar', '.js', '.jse', 
+      '.lib', '.lnk', '.mde', '.msc', '.msi', '.msix', '.msixbundle', '.msp', '.mst', '.nsh', '.pif', 
+      '.ps1', '.scr', '.sct', '.shb', '.sys', '.vb', '.vbe', '.vbs', '.vxd', '.wsc', '.wsf', '.wsh'
+    ];
+
+    const restrictedFiles = Array.from(files).filter(file => {
+      const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+      return BLOCKED_EXTENSIONS.includes(ext);
+    });
+
+    if (restrictedFiles.length > 0) {
+      setStatus({ 
+        type: 'error', 
+        message: `Security Warning: Some files are blocked by email providers (e.g. ${restrictedFiles.map(f => f.name).join(', ')}). These will likely cause the email to be rejected. Please remove them or share via a link.` 
+      });
+      // We don't return here, we let them try if they want, but we show the warning
+    }
+
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -255,14 +275,43 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
     }
   };
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedAccount) return;
+  const handleSend = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    // Auto-add current input if it looks like an email
+    let currentTo = to;
+    if (toInput.trim()) {
+      const trimmed = toInput.trim().replace(/,$/, '');
+      if (trimmed && !recipients.includes(trimmed)) {
+        currentTo = to ? `${to}, ${trimmed}` : trimmed;
+        setTo(currentTo);
+        setToInput('');
+      }
+    }
+
+    if (!selectedAccount) {
+      setStatus({ type: 'error', message: "Please select an account to send from." });
+      return;
+    }
+
+    const finalRecipients = currentTo.split(',').map(r => r.trim()).filter(r => r.length > 0);
+    if (finalRecipients.length === 0) {
+      setStatus({ type: 'error', message: "Please add at least one recipient." });
+      return;
+    }
+
+    if (!subject.trim()) {
+      setStatus({ type: 'error', message: "Please enter a subject." });
+      return;
+    }
+
+    if (!body.trim() || body === '<br>') {
+      setStatus({ type: 'error', message: "Please enter a message body." });
+      return;
+    }
 
     setIsSending(true);
     setStatus(null);
-
-    const recipients = to.split(',').map(r => r.trim()).filter(r => r.length > 0);
 
     try {
       const response = await fetch('/api/send-email', {
@@ -280,7 +329,7 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
           refreshToken: selectedAccount.refreshToken,
           mailOptions: {
             from: `"${selectedAccount.label}" <${selectedAccount.email}>`,
-            to: recipients.join(', '),
+            to: finalRecipients.join(', '),
             replyTo: replyTo || undefined,
             subject,
             html: body,
@@ -315,7 +364,7 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
           }
         }
         
-        setStatus({ type: 'success', message: `Message sent successfully to ${recipients.length} recipient(s)!` });
+        setStatus({ type: 'success', message: `Message sent successfully to ${finalRecipients.length} recipient(s)!` });
         setTimeout(onClose, 2000);
       } else {
         setStatus({ type: 'error', message: data.error || "Failed to send message" });
@@ -471,7 +520,6 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
                     value={subject}
                     onChange={e => setSubject(e.target.value)}
                     className="flex-1 bg-transparent border-none text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:ring-0"
-                    required
                   />
                 </div>
               </div>
@@ -682,8 +730,9 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
                     <Trash2 size={20} />
                   </button>
                   <button 
-                    type="submit"
+                    type="button"
                     disabled={isSending}
+                    onClick={() => handleSend()}
                     className={cn(
                       "bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-8 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20",
                       isSending && "opacity-50 cursor-not-allowed"

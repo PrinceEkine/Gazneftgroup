@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
+import { Logo } from './Logo';
+
 interface Props {
   onGetStarted: (mode?: 'login' | 'register') => void;
   onShowPrivacy: () => void;
@@ -37,8 +39,8 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 dark:border-slate-800/50 bg-white/50 dark:bg-slate-950/50 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
-              <Mail className="text-white w-6 h-6" />
+            <div className="relative w-11 h-11 bg-slate-900 dark:bg-white/5 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 group cursor-pointer overflow-hidden border border-slate-200 dark:border-white/10 hover:scale-105 transition-all">
+              <Logo className="w-8 h-8" />
             </div>
             <span className="font-display text-2xl tracking-tight text-slate-900 dark:text-white uppercase">Gazneftgroups</span>
           </div>
@@ -86,6 +88,15 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
+            <div className="flex justify-center mb-10">
+              <motion.div 
+                whileHover={{ scale: 1.05, rotate: 2 }}
+                className="w-32 h-32 p-1 rounded-[2.5rem] bg-slate-950 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center relative shadow-[0_32px_64px_-16px_rgba(59,130,246,0.3)] transition-all"
+              >
+                <Logo className="w-20 h-20" />
+                <div className="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full -z-10 animate-pulse" />
+              </motion.div>
+            </div>
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8">
               <Sparkles size={14} />
               The Future of Webmail

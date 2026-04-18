@@ -45,6 +45,7 @@ import ComposeModal from './components/ComposeModal';
 import DeliverabilityGuide from './components/DeliverabilityGuide';
 import LandingPage from './components/LandingPage';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import { Logo } from './components/Logo';
 
 type AuthMode = 'login' | 'register' | 'forgot';
 
@@ -61,7 +62,26 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
-  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(window.location.search.includes('page=privacy'));
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setShowPrivacy(window.location.search.includes('page=privacy'));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const togglePrivacy = (show: boolean) => {
+    setShowPrivacy(show);
+    const url = new URL(window.location.href);
+    if (show) {
+      url.searchParams.set('page', 'privacy');
+    } else {
+      url.searchParams.delete('page');
+    }
+    window.history.pushState({}, '', url);
+  };
 
   useEffect(() => {
     if (isDarkMode) {
@@ -144,7 +164,7 @@ export default function App() {
   const handleLogout = () => signOut(auth);
 
   if (showPrivacy) {
-    return <PrivacyPolicy onBack={() => setShowPrivacy(false)} />;
+    return <PrivacyPolicy onBack={() => togglePrivacy(false)} />;
   }
 
   if (!user) {
@@ -154,7 +174,7 @@ export default function App() {
           if (mode) setAuthMode(mode);
           setShowLanding(false);
         }} 
-        onShowPrivacy={() => setShowPrivacy(true)}
+        onShowPrivacy={() => togglePrivacy(true)}
         isDarkMode={isDarkMode}
         onToggleTheme={() => setIsDarkMode(!isDarkMode)}
       />;
@@ -188,8 +208,8 @@ export default function App() {
             <ArrowLeft size={20} />
           </button>
 
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/20">
-            <Mail className="text-white w-8 h-8" />
+          <div className="w-20 h-20 rounded-[1.5rem] bg-slate-950 dark:bg-slate-800/50 flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-500/10 border border-slate-200 dark:border-white/5">
+            <Logo className="w-12 h-12" />
           </div>
           
           <h1 className="text-4xl font-display text-slate-900 dark:text-white mb-2 uppercase tracking-tight">Gazneftgroups</h1>
@@ -327,8 +347,8 @@ export default function App() {
           >
             <div className="p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Mail className="text-white w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-900 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-lg shadow-blue-500/10">
+                  <Logo className="w-6 h-6" />
                 </div>
                 <span className="font-display text-xl tracking-tight uppercase text-slate-900 dark:text-white">Gazneftgroups</span>
               </div>

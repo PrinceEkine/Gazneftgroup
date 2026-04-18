@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { EmailAccount } from '../types';
 import { cn } from '../lib/utils';
+import { Logo } from './Logo';
 
 interface Props {
   accounts: EmailAccount[];
@@ -289,9 +290,14 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
       >
         <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Manage Accounts</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Link up to 20 email accounts</p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-900 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-lg shadow-blue-500/10 transition-all">
+              <Logo className="w-8 h-8" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Manage Accounts</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Link up to 20 email accounts</p>
+            </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all">
             <X size={20} />

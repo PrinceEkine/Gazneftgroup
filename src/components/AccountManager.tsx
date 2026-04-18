@@ -320,6 +320,13 @@ export default function AccountManager({ accounts, onClose, user }: Props) {
                   {isSaving ? "Connecting..." : "Connect with Microsoft"}
                 </button>
 
+                <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/50 p-3 rounded-lg flex items-start gap-3 mt-2">
+                  <Shield size={16} className="text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                    <b>Developer Note:</b> If your login expires after 7 days, it's likely because your Google Cloud project is in <b>"Testing"</b> mode. You'll need to remove and re-add the account, or switch your Google project to "Production" status.
+                  </p>
+                </div>
+
                 <div className="relative py-4">
                   <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
                   <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-2 text-slate-500">Or add manually</span></div>

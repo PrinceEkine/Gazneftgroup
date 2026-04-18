@@ -233,6 +233,8 @@ router.post("/send-email", async (req, res) => {
     let errorMessage = error.message;
     if (errorMessage.includes("552-5.7.0") || errorMessage.includes("security issue")) {
       errorMessage = "The email was blocked by the provider (e.g. Gmail) because the attachment contains a potential security risk. This often happens with ZIP files containing scripts (.js), executables (.exe), or other restricted file types. Try removing those files or sharing via a cloud link (Google Drive/Dropbox).";
+    } else if (errorMessage.toLowerCase().includes("invalid_grant") || errorMessage.toLowerCase().includes("expired") || errorMessage.toLowerCase().includes("revoked")) {
+      errorMessage = "Your email connection has expired or been revoked. Please go to Settings, remove this account, and connect it again to refresh the access.";
     }
     res.status(500).json({ error: errorMessage });
   }
@@ -342,7 +344,11 @@ router.post("/fetch-emails", async (req, res) => {
       res.json({ success: true, messages: messages.reverse() });
     } catch (error: any) {
       console.error("[IMAP] General Error:", error);
-      res.status(500).json({ error: `IMAP Error: ${error.message}` });
+      let msg = error.message;
+      if (msg.toLowerCase().includes("invalid_grant") || msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("revoked")) {
+        msg = "Your email connection has expired or been revoked. Please go to Settings, remove this account, and connect it again.";
+      }
+      res.status(500).json({ error: `IMAP Error: ${msg}` });
     }
   });
 
@@ -431,7 +437,12 @@ router.post("/fetch-message-body", async (req, res) => {
       res.status(404).json({ error: "Message not found" });
     }
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[IMAP] Body Error:", error);
+    let msg = error.message;
+    if (msg.toLowerCase().includes("invalid_grant") || msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("revoked")) {
+      msg = "Your email connection has expired or been revoked. Please go to Settings, remove this account, and connect it again.";
+    }
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -511,7 +522,12 @@ router.post("/update-flags", async (req, res) => {
     }
     await client.logout();
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[IMAP] Flags Error:", error);
+    let msg = error.message;
+    if (msg.toLowerCase().includes("invalid_grant") || msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("revoked")) {
+      msg = "Your email connection has expired or been revoked. Please go to Settings, remove this account, and connect it again.";
+    }
+    res.status(500).json({ error: msg });
   }
 });
 

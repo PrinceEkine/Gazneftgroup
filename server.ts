@@ -244,6 +244,8 @@ async function startServer() {
       let errorMessage = error.message;
       if (errorMessage.includes("552-5.7.0") || errorMessage.includes("security issue")) {
         errorMessage = "The email was blocked by the provider (e.g. Gmail) because the attachment contains a potential security risk. This often happens with ZIP files containing scripts (.js), executables (.exe), or other restricted file types. Try removing those files or sharing via a cloud link (Google Drive/Dropbox).";
+      } else if (errorMessage.toLowerCase().includes("invalid_grant") || errorMessage.toLowerCase().includes("expired") || errorMessage.toLowerCase().includes("revoked")) {
+        errorMessage = "Your email connection has expired or been revoked. Please go to Settings, remove this account, and connect it again to refresh the access.";
       }
       res.status(500).json({ error: errorMessage });
     }
@@ -397,6 +399,14 @@ async function startServer() {
       res.status(500).json({ error: `IMAP Error: ${error.message}` });
     }
   });
+
+  const handleImapError = (error: any) => {
+    let msg = error.message;
+    if (msg.toLowerCase().includes("invalid_grant") || msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("revoked")) {
+      return "Your connection has expired. Please remove and re-add this account in Settings.";
+    }
+    return `IMAP Error: ${msg}`;
+  };
 
   // API: Fetch Single Message Body (IMAP Proxy)
   app.post("/api/fetch-message-body", async (req, res) => {

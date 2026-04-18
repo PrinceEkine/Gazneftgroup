@@ -454,7 +454,15 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
             <h4 className="text-slate-900 dark:text-white font-bold mb-6">Company</h4>
             <ul className="space-y-4 text-sm text-slate-500">
               <li><a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">About</a></li>
-              <li><button onClick={onShowPrivacy} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left">Privacy</button></li>
+              <li>
+                <a 
+                  href="/?page=privacy" 
+                  onClick={(e) => { e.preventDefault(); onShowPrivacy(); }}
+                  className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left font-semibold text-blue-600 dark:text-blue-500 underline decoration-2 underline-offset-4"
+                >
+                  Privacy Policy
+                </a>
+              </li>
               <li><a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Terms</a></li>
               <li><a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Contact</a></li>
             </ul>

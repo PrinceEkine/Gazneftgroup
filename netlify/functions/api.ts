@@ -304,17 +304,60 @@ router.post("/fetch-emails", async (req, res) => {
 
     try {
       await client.connect();
-      // Use mailboxOpen to ensure the mailbox is selected before locking or fetching
-      await client.mailboxOpen(folder);
-      const lock = await client.getMailboxLock(folder);
+      
+      // Try to open the requested folder with fuzzy match support
+      let targetFolder = folder;
+      let mailbox;
+      try {
+        mailbox = await client.mailboxOpen(targetFolder);
+      } catch (openError) {
+        console.warn(`[IMAP] Failed to open folder "${targetFolder}", trying to find a match...`);
+        const mailboxes = await client.list();
+        
+        // Helper to find a mailbox by fuzzy name
+        const findMailbox = (name: string) => {
+          const lowerName = name.toLowerCase();
+          return mailboxes.find(m => 
+            m.path.toLowerCase() === lowerName || 
+            m.name.toLowerCase() === lowerName ||
+            m.path.toLowerCase().includes(lowerName)
+          );
+        };
+
+        let match = null;
+        if (folder.toUpperCase() === 'SENT') match = findMailbox('sent');
+        else if (folder.toUpperCase() === 'DRAFTS') match = findMailbox('drafts');
+        else if (folder.toUpperCase() === 'TRASH' || folder.toUpperCase() === 'DELETED') match = findMailbox('trash') || findMailbox('deleted');
+        else if (folder.toUpperCase() === 'SPAM' || folder.toUpperCase() === 'JUNK') match = findMailbox('spam') || findMailbox('junk');
+        
+        if (match) {
+          targetFolder = match.path;
+          console.log(`[IMAP] Found matching folder: ${targetFolder}`);
+          mailbox = await client.mailboxOpen(targetFolder);
+        } else {
+          // Fallback to INBOX if nothing found and it's not a standard folder
+          console.warn(`[IMAP] No match found for "${folder}", falling back to INBOX`);
+          targetFolder = 'INBOX';
+          mailbox = await client.mailboxOpen(targetFolder);
+        }
+      }
+
+      let lock;
+      try {
+        lock = await client.getMailboxLock(targetFolder);
+      } catch (lockError: any) {
+        console.warn("[IMAP] Failed to get mailbox lock, continuing without lock:", lockError);
+      }
+
       const messages = [];
       try {
-        const status = await client.status(folder, { messages: true });
-        const totalMessages = status.messages || 0;
+        // Grab the count directly from the opened mailbox object rather than using STATUS,
+        // since IMAP RFC 3501 Section 6.4.4 forbids STATUS on active mailbox.
+        const totalMessages = mailbox ? (mailbox.exists || 0) : 0;
         
         if (totalMessages > 0) {
           const start = Math.max(1, totalMessages - limit + 1);
-          const range = `${start}:*`;
+          const range = `${start}:${totalMessages}`;
           
           try {
             // ONLY fetch envelope and flags for the list view - MUCH FASTER
@@ -338,7 +381,9 @@ router.post("/fetch-emails", async (req, res) => {
           }
         }
       } finally {
-        lock.release();
+        if (lock) {
+          lock.release();
+        }
       }
       await client.logout();
       res.json({ success: true, messages: messages.reverse() });
@@ -407,7 +452,13 @@ router.post("/fetch-message-body", async (req, res) => {
   try {
     await client.connect();
     await client.mailboxOpen(folder);
-    const lock = await client.getMailboxLock(folder);
+    
+    let lock;
+    try {
+      lock = await client.getMailboxLock(folder);
+    } catch (lockError: any) {
+      console.warn("[IMAP] Failed to get mailbox lock for body fetch:", lockError);
+    }
     
     let messageData = null;
     try {
@@ -427,7 +478,9 @@ router.post("/fetch-message-body", async (req, res) => {
         };
       }
     } finally {
-      lock.release();
+      if (lock) {
+        lock.release();
+      }
     }
 
     await client.logout();
@@ -507,7 +560,14 @@ router.post("/update-flags", async (req, res) => {
   try {
     await client.connect();
     await client.mailboxOpen(folder);
-    const lock = await client.getMailboxLock(folder);
+    
+    let lock;
+    try {
+      lock = await client.getMailboxLock(folder);
+    } catch (lockError: any) {
+      console.warn("[IMAP] Failed to get mailbox lock for flags update:", lockError);
+    }
+    
     try {
       if (action === 'add') {
         await client.messageFlagsAdd({ uid }, flags);
@@ -518,7 +578,9 @@ router.post("/update-flags", async (req, res) => {
       }
       res.json({ success: true });
     } finally {
-      lock.release();
+      if (lock) {
+        lock.release();
+      }
     }
     await client.logout();
   } catch (error: any) {

@@ -321,8 +321,9 @@ async function startServer() {
       
       // Try to open the requested folder
       let targetFolder = folder;
+      let mailbox;
       try {
-        await client.mailboxOpen(targetFolder);
+        mailbox = await client.mailboxOpen(targetFolder);
       } catch (openError) {
         console.warn(`[IMAP] Failed to open folder "${targetFolder}", trying to find a match...`);
         const mailboxes = await client.list();
@@ -346,12 +347,12 @@ async function startServer() {
         if (match) {
           targetFolder = match.path;
           console.log(`[IMAP] Found matching folder: ${targetFolder}`);
-          await client.mailboxOpen(targetFolder);
+          mailbox = await client.mailboxOpen(targetFolder);
         } else {
           // Fallback to INBOX if nothing found and it's not a standard folder
           console.warn(`[IMAP] No match found for "${folder}", falling back to INBOX`);
           targetFolder = 'INBOX';
-          await client.mailboxOpen(targetFolder);
+          mailbox = await client.mailboxOpen(targetFolder);
         }
       }
 
@@ -360,8 +361,9 @@ async function startServer() {
       const messages = [];
       try {
         // Fetch last 'limit' messages using sequence range
-        const status = await client.status(targetFolder, { messages: true });
-        const totalMessages = status.messages || 0;
+        // Note: Avoiding STATUS on the currently selected mailbox as per IMAP RFC 3501 Section 6.4.4 ("The STATUS command MUST NOT be used on the currently selected mailbox")
+        // Instead, grab the count directly from the opened mailbox object
+        const totalMessages = mailbox ? (mailbox.exists || 0) : 0;
         
         if (totalMessages > 0) {
           const start = Math.max(1, totalMessages - limit + 1);

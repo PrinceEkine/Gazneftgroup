@@ -356,7 +356,12 @@ async function startServer() {
         }
       }
 
-      const lock = await client.getMailboxLock(targetFolder);
+      let lock;
+      try {
+        lock = await client.getMailboxLock(targetFolder);
+      } catch (lockError: any) {
+        console.warn("[IMAP] Failed to get mailbox lock, continuing without lock:", lockError);
+      }
       
       const messages = [];
       try {
@@ -367,7 +372,8 @@ async function startServer() {
         
         if (totalMessages > 0) {
           const start = Math.max(1, totalMessages - limit + 1);
-          const range = `${start}:*`;
+          // Explicit range start:end is significantly safer and is supported by 100% of servers
+          const range = `${start}:${totalMessages}`;
 
           try {
             // ONLY fetch envelope and flags for the list view - MUCH FASTER
@@ -387,19 +393,32 @@ async function startServer() {
             }
           } catch (fetchError: any) {
             console.error("[IMAP] Fetch command failed:", fetchError);
-            throw new Error(`IMAP Fetch failed: ${fetchError.message}`);
+            throw new Error(`IMAP Fetch failed: ${fetchError.message} (Command: ${fetchError.command || 'FETCH'}${fetchError.response ? `, Response: ${fetchError.response}` : ''})`);
           }
         }
       } finally {
-        lock.release();
+        if (lock) {
+          lock.release();
+        }
       }
 
       await client.logout();
       res.json({ success: true, messages: messages.reverse() });
     } catch (error: any) {
       console.error("IMAP Error:", error);
-      res.status(500).json({ error: `IMAP Error: ${error.message}` });
+      let errorDetails = error.message;
+      if (error.command) {
+        errorDetails += ` (Command: ${error.command}`;
+        if (error.response) {
+          errorDetails += `, Response: ${error.response}`;
+        }
+        errorDetails += `)`;
+      } else if (error.response) {
+        errorDetails += ` (Response: ${error.response})`;
+      }
+      res.status(500).json({ error: `IMAP Error: ${errorDetails}` });
     }
+
   });
 
   const handleImapError = (error: any) => {

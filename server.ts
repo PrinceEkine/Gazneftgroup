@@ -43,6 +43,45 @@ async function startServer() {
     );
   };
 
+  // Robust helper to open a mailbox with automatic case/path fuzzy matching
+  async function openMailboxWithFallback(client: ImapFlow, folder: string) {
+    try {
+      const mailbox = await client.mailboxOpen(folder);
+      return { mailbox, targetFolder: folder };
+    } catch (openError) {
+      console.warn(`[IMAP] Failed to open folder "${folder}", trying to find a match...`);
+      const mailboxes = await client.list();
+      
+      // Helper to find a mailbox by fuzzy name
+      const findMailbox = (name: string) => {
+        const lowerName = name.toLowerCase();
+        return mailboxes.find(m => 
+          m.path.toLowerCase() === lowerName || 
+          m.name.toLowerCase() === lowerName ||
+          m.path.toLowerCase().includes(lowerName)
+        );
+      };
+
+      let match = null;
+      const upperFolder = folder.toUpperCase();
+      if (upperFolder === 'SENT') match = findMailbox('sent');
+      else if (upperFolder === 'DRAFTS') match = findMailbox('drafts');
+      else if (upperFolder === 'TRASH' || upperFolder === 'DELETED') match = findMailbox('trash') || findMailbox('deleted');
+      else if (upperFolder === 'SPAM' || upperFolder === 'JUNK') match = findMailbox('spam') || findMailbox('junk');
+      
+      if (match) {
+        console.log(`[IMAP] Found matching folder for "${folder}": ${match.path}`);
+        const mailbox = await client.mailboxOpen(match.path);
+        return { mailbox, targetFolder: match.path };
+      } else {
+        // Fallback to INBOX if nothing found
+        console.warn(`[IMAP] No match found for "${folder}", falling back to INBOX`);
+        const mailbox = await client.mailboxOpen('INBOX');
+        return { mailbox, targetFolder: 'INBOX' };
+      }
+    }
+  }
+
   app.get("/api/auth/google/url", (req, res) => {
     try {
       const oauth2Client = getOAuth2Client();
@@ -319,42 +358,7 @@ async function startServer() {
     try {
       await client.connect();
       
-      // Try to open the requested folder
-      let targetFolder = folder;
-      let mailbox;
-      try {
-        mailbox = await client.mailboxOpen(targetFolder);
-      } catch (openError) {
-        console.warn(`[IMAP] Failed to open folder "${targetFolder}", trying to find a match...`);
-        const mailboxes = await client.list();
-        
-        // Helper to find a mailbox by fuzzy name
-        const findMailbox = (name: string) => {
-          const lowerName = name.toLowerCase();
-          return mailboxes.find(m => 
-            m.path.toLowerCase() === lowerName || 
-            m.name.toLowerCase() === lowerName ||
-            m.path.toLowerCase().includes(lowerName)
-          );
-        };
-
-        let match = null;
-        if (folder.toUpperCase() === 'SENT') match = findMailbox('sent');
-        else if (folder.toUpperCase() === 'DRAFTS') match = findMailbox('drafts');
-        else if (folder.toUpperCase() === 'TRASH' || folder.toUpperCase() === 'DELETED') match = findMailbox('trash') || findMailbox('deleted');
-        else if (folder.toUpperCase() === 'SPAM' || folder.toUpperCase() === 'JUNK') match = findMailbox('spam') || findMailbox('junk');
-        
-        if (match) {
-          targetFolder = match.path;
-          console.log(`[IMAP] Found matching folder: ${targetFolder}`);
-          mailbox = await client.mailboxOpen(targetFolder);
-        } else {
-          // Fallback to INBOX if nothing found and it's not a standard folder
-          console.warn(`[IMAP] No match found for "${folder}", falling back to INBOX`);
-          targetFolder = 'INBOX';
-          mailbox = await client.mailboxOpen(targetFolder);
-        }
-      }
+      const { mailbox, targetFolder } = await openMailboxWithFallback(client, folder);
 
       let lock;
       try {
@@ -485,9 +489,8 @@ async function startServer() {
       await client.connect();
       console.log(`[IMAP] Connected for body fetch. User: ${imapConfig.user}, Folder: ${folder}, UID: ${uid}`);
       
-      // MUST open mailbox before getting lock
-      await client.mailboxOpen(folder);
-      const lock = await client.getMailboxLock(folder);
+      const { targetFolder } = await openMailboxWithFallback(client, folder);
+      const lock = await client.getMailboxLock(targetFolder);
       
       let messageData = null;
       try {
@@ -509,7 +512,7 @@ async function startServer() {
             }))
           };
         } else {
-          console.warn(`[IMAP] Message UID ${uidStr} not found in folder ${folder}`);
+          console.warn(`[IMAP] Message UID ${uidStr} not found in folder ${targetFolder}`);
         }
       } catch (fetchError: any) {
         console.error(`[IMAP] fetchOne failed for UID ${uid}:`, fetchError.message);
@@ -587,8 +590,8 @@ async function startServer() {
 
     try {
       await client.connect();
-      await client.mailboxOpen(folder);
-      const lock = await client.getMailboxLock(folder);
+      const { targetFolder } = await openMailboxWithFallback(client, folder);
+      const lock = await client.getMailboxLock(targetFolder);
       try {
         if (action === 'add') {
           await client.messageFlagsAdd({ uid }, flags);

@@ -34,6 +34,45 @@ const getOAuth2Client = () => {
   );
 };
 
+// Robust helper to open a mailbox with automatic case/path fuzzy matching
+async function openMailboxWithFallback(client: ImapFlow, folder: string) {
+  try {
+    const mailbox = await client.mailboxOpen(folder);
+    return { mailbox, targetFolder: folder };
+  } catch (openError) {
+    console.warn(`[IMAP] Failed to open folder "${folder}", trying to find a match...`);
+    const mailboxes = await client.list();
+    
+    // Helper to find a mailbox by fuzzy name
+    const findMailbox = (name: string) => {
+      const lowerName = name.toLowerCase();
+      return mailboxes.find(m => 
+        m.path.toLowerCase() === lowerName || 
+        m.name.toLowerCase() === lowerName ||
+        m.path.toLowerCase().includes(lowerName)
+      );
+    };
+
+    let match = null;
+    const upperFolder = folder.toUpperCase();
+    if (upperFolder === 'SENT') match = findMailbox('sent');
+    else if (upperFolder === 'DRAFTS') match = findMailbox('drafts');
+    else if (upperFolder === 'TRASH' || upperFolder === 'DELETED') match = findMailbox('trash') || findMailbox('deleted');
+    else if (upperFolder === 'SPAM' || upperFolder === 'JUNK') match = findMailbox('spam') || findMailbox('junk');
+    
+    if (match) {
+      console.log(`[IMAP] Found matching folder for "${folder}": ${match.path}`);
+      const mailbox = await client.mailboxOpen(match.path);
+      return { mailbox, targetFolder: match.path };
+    } else {
+      // Fallback to INBOX if nothing found
+      console.warn(`[IMAP] No match found for "${folder}", falling back to INBOX`);
+      const mailbox = await client.mailboxOpen('INBOX');
+      return { mailbox, targetFolder: 'INBOX' };
+    }
+  }
+}
+
 // Define routes in a way that handles both /api prefix and no prefix
 const router = express.Router();
 
@@ -305,42 +344,7 @@ router.post("/fetch-emails", async (req, res) => {
     try {
       await client.connect();
       
-      // Try to open the requested folder with fuzzy match support
-      let targetFolder = folder;
-      let mailbox;
-      try {
-        mailbox = await client.mailboxOpen(targetFolder);
-      } catch (openError) {
-        console.warn(`[IMAP] Failed to open folder "${targetFolder}", trying to find a match...`);
-        const mailboxes = await client.list();
-        
-        // Helper to find a mailbox by fuzzy name
-        const findMailbox = (name: string) => {
-          const lowerName = name.toLowerCase();
-          return mailboxes.find(m => 
-            m.path.toLowerCase() === lowerName || 
-            m.name.toLowerCase() === lowerName ||
-            m.path.toLowerCase().includes(lowerName)
-          );
-        };
-
-        let match = null;
-        if (folder.toUpperCase() === 'SENT') match = findMailbox('sent');
-        else if (folder.toUpperCase() === 'DRAFTS') match = findMailbox('drafts');
-        else if (folder.toUpperCase() === 'TRASH' || folder.toUpperCase() === 'DELETED') match = findMailbox('trash') || findMailbox('deleted');
-        else if (folder.toUpperCase() === 'SPAM' || folder.toUpperCase() === 'JUNK') match = findMailbox('spam') || findMailbox('junk');
-        
-        if (match) {
-          targetFolder = match.path;
-          console.log(`[IMAP] Found matching folder: ${targetFolder}`);
-          mailbox = await client.mailboxOpen(targetFolder);
-        } else {
-          // Fallback to INBOX if nothing found and it's not a standard folder
-          console.warn(`[IMAP] No match found for "${folder}", falling back to INBOX`);
-          targetFolder = 'INBOX';
-          mailbox = await client.mailboxOpen(targetFolder);
-        }
-      }
+      const { mailbox, targetFolder } = await openMailboxWithFallback(client, folder);
 
       let lock;
       try {
@@ -377,7 +381,15 @@ router.post("/fetch-emails", async (req, res) => {
             }
           } catch (fetchError: any) {
             console.error("[IMAP] Fetch command failed:", fetchError);
-            throw new Error(`IMAP Fetch failed: ${fetchError.message}`);
+            let detail = fetchError.message;
+            if (fetchError.command) {
+              detail += ` (Command: ${fetchError.command}`;
+              if (fetchError.response) {
+                detail += `, Response: ${fetchError.response}`;
+              }
+              detail += `)`;
+            }
+            throw new Error(`IMAP Fetch failed: ${detail}`);
           }
         }
       } finally {
@@ -392,6 +404,16 @@ router.post("/fetch-emails", async (req, res) => {
       let msg = error.message;
       if (msg.toLowerCase().includes("invalid_grant") || msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("revoked")) {
         msg = "Your email connection has expired or been revoked. Please go to Settings, remove this account, and connect it again.";
+      } else {
+        if (error.command) {
+          msg += ` (Command: ${error.command}`;
+          if (error.response) {
+            msg += `, Response: ${error.response}`;
+          }
+          msg += `)`;
+        } else if (error.response) {
+          msg += ` (Response: ${error.response})`;
+        }
       }
       res.status(500).json({ error: `IMAP Error: ${msg}` });
     }
@@ -451,11 +473,11 @@ router.post("/fetch-message-body", async (req, res) => {
 
   try {
     await client.connect();
-    await client.mailboxOpen(folder);
+    const { targetFolder } = await openMailboxWithFallback(client, folder);
     
     let lock;
     try {
-      lock = await client.getMailboxLock(folder);
+      lock = await client.getMailboxLock(targetFolder);
     } catch (lockError: any) {
       console.warn("[IMAP] Failed to get mailbox lock for body fetch:", lockError);
     }
@@ -494,6 +516,16 @@ router.post("/fetch-message-body", async (req, res) => {
     let msg = error.message;
     if (msg.toLowerCase().includes("invalid_grant") || msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("revoked")) {
       msg = "Your email connection has expired or been revoked. Please go to Settings, remove this account, and connect it again.";
+    } else {
+      if (error.command) {
+        msg += ` (Command: ${error.command}`;
+        if (error.response) {
+          msg += `, Response: ${error.response}`;
+        }
+        msg += `)`;
+      } else if (error.response) {
+        msg += ` (Response: ${error.response})`;
+      }
     }
     res.status(500).json({ error: msg });
   }
@@ -559,11 +591,11 @@ router.post("/update-flags", async (req, res) => {
 
   try {
     await client.connect();
-    await client.mailboxOpen(folder);
+    const { targetFolder } = await openMailboxWithFallback(client, folder);
     
     let lock;
     try {
-      lock = await client.getMailboxLock(folder);
+      lock = await client.getMailboxLock(targetFolder);
     } catch (lockError: any) {
       console.warn("[IMAP] Failed to get mailbox lock for flags update:", lockError);
     }
@@ -588,6 +620,16 @@ router.post("/update-flags", async (req, res) => {
     let msg = error.message;
     if (msg.toLowerCase().includes("invalid_grant") || msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("revoked")) {
       msg = "Your email connection has expired or been revoked. Please go to Settings, remove this account, and connect it again.";
+    } else {
+      if (error.command) {
+        msg += ` (Command: ${error.command}`;
+        if (error.response) {
+          msg += `, Response: ${error.response}`;
+        }
+        msg += `)`;
+      } else if (error.response) {
+        msg += ` (Response: ${error.response})`;
+      }
     }
     res.status(500).json({ error: msg });
   }

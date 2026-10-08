@@ -25,7 +25,10 @@ import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,7 +47,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,6 +60,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.gazneftgroup.mail.R
 import com.gazneftgroup.mail.ui.components.BrandMark
 import com.gazneftgroup.mail.ui.components.ErrorBanner
 import com.gazneftgroup.mail.ui.theme.BrandColors
@@ -70,10 +77,12 @@ fun SignInScreen(
         if (uiState.signedIn) onSignedIn()
     }
 
+    val context = LocalContext.current
     SignInContent(
         uiState = uiState,
         onSignIn = { email, password -> viewModel.signIn(email, password) },
         onSignUp = { email, password -> viewModel.signUp(email, password) },
+        onGoogleSignIn = { viewModel.signInWithGoogle(context) },
     )
 }
 
@@ -87,6 +96,7 @@ fun SignInContent(
     uiState: AuthUiState,
     onSignIn: (String, String) -> Unit,
     onSignUp: (String, String) -> Unit,
+    onGoogleSignIn: () -> Unit = {},
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -207,6 +217,48 @@ fun SignInContent(
 
                 uiState.error?.let {
                     ErrorBanner(text = it, modifier = Modifier.padding(top = 16.dp))
+                }
+
+                // web: "Or continue with" divider + Google button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f))
+                    Text(
+                        "OR CONTINUE WITH",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f))
+                }
+                OutlinedButton(
+                    onClick = onGoogleSignIn,
+                    enabled = !uiState.isLoading,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 20.dp)
+                        .height(50.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_google),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.size(12.dp))
+                    Text(
+                        if (isRegistering) "Sign up with Google" else "Google",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    )
                 }
 
                 Row(

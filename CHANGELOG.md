@@ -5,6 +5,10 @@ Group by surface: **web**, **android**, **admin**, **infra**, **docs**.
 
 ## 2026-10-08
 
+- **android**: Google sign-in / sign-up button on the auth screen (Credential
+  Manager + Firebase). Shared `app/debug.keystore` committed so CI and local
+  builds share one SHA-1; register it in Firebase and refresh
+  `google-services.json` (steps in `mobile/README.md`).
 - **android**: Sign-in now reports the real cause (wrong password, account
   exists, weak password, offline, rate limited) instead of the inbox offline
   message. A failed profile-document write no longer fails the sign-in.

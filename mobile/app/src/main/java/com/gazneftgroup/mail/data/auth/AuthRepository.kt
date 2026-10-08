@@ -12,6 +12,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.channels.awaitClose
@@ -55,6 +56,13 @@ class AuthRepository @Inject constructor(
 
     suspend fun signUp(email: String, password: String): AppResult<UserProfile> = runAuth {
         auth.createUserWithEmailAndPassword(email, password).await()
+        ensureProfileDocument()
+        requireNotNull(currentUser)
+    }
+
+    /** Exchanges a Google ID token (from Credential Manager) for a Firebase session. Creates the user on first use. */
+    suspend fun signInWithGoogle(idToken: String): AppResult<UserProfile> = runAuth {
+        auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
         ensureProfileDocument()
         requireNotNull(currentUser)
     }

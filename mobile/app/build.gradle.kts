@@ -9,9 +9,43 @@ plugins {
     alias(libs.plugins.crashlytics)
 }
 
+/**
+ * Web OAuth client ID used for Google sign-in (Credential Manager needs the
+ * *web* client, not the Android one). Resolved from, in order: the
+ * GOOGLE_WEB_CLIENT_ID Gradle property / env var, then the `oauth_client`
+ * entry of type 3 in google-services.json, which Firebase adds once the app's
+ * SHA-1 fingerprint is registered and the Google provider is enabled.
+ */
+val googleWebClientId: String = run {
+    val explicit = (project.findProperty("GOOGLE_WEB_CLIENT_ID") as String?)
+        ?: System.getenv("GOOGLE_WEB_CLIENT_ID")
+    if (!explicit.isNullOrBlank()) return@run explicit
+    val json = file("google-services.json")
+    if (!json.exists()) return@run ""
+    @Suppress("UNCHECKED_CAST")
+    val root = groovy.json.JsonSlurper().parseText(json.readText()) as Map<String, Any?>
+    @Suppress("UNCHECKED_CAST")
+    val clients = root["client"] as? List<Map<String, Any?>> ?: emptyList()
+    @Suppress("UNCHECKED_CAST")
+    clients.flatMap { (it["oauth_client"] as? List<Map<String, Any?>>) ?: emptyList() }
+        .firstOrNull { (it["client_type"] as? Number)?.toInt() == 3 }
+        ?.get("client_id") as? String ?: ""
+}
+
 android {
     namespace = "com.gazneftgroup.mail"
     compileSdk = 35
+
+    signingConfigs {
+        // Shared debug keystore (committed on purpose) so CI, teammates and the
+        // Firebase console all see the same SHA-1 for Google sign-in.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
 
     defaultConfig {
         applicationId = "com.gazneftgroup.mail"
@@ -20,6 +54,7 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
@@ -102,6 +137,9 @@ dependencies {
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.messaging)
     implementation(libs.firebase.crashlytics)

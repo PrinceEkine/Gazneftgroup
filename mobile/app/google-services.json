@@ -1,33 +1,36 @@
 {
   "project_info": {
-    "project_number": "123456789012",
-    "project_id": "gazneft-mail",
-    "storage_bucket": "gazneft-mail.appspot.com"
+    "project_number": "794061763706",
+    "project_id": "ai-studio-applet-webapp-9f138",
+    "storage_bucket": "ai-studio-applet-webapp-9f138.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789012:android:1234567890abcdef123456",
+        "mobilesdk_app_id": "1:794061763706:android:cf4168a1bbb244583cb7c3",
         "android_client_info": {
           "package_name": "com.gazneftgroup.mail"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "794061763706-pav8gmqtqd4c2n2tsbrb2md99jsegp6b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyDummyApiKeyForLocalBuild12345"
+          "current_key": "AIzaSyARAv3gfOVS5wtVrykA1Tn2SDndn3tNRSY"
         }
       ],
       "services": {
-        "analytics_service": {
-          "status": 1
-        },
         "appinvite_service": {
-          "status": 1,
-          "other_platform_oauth_client": []
-        },
-        "ads_service": {
-          "status": 1
+          "other_platform_oauth_client": [
+            {
+              "client_id": "794061763706-pav8gmqtqd4c2n2tsbrb2md99jsegp6b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

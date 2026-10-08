@@ -64,6 +64,21 @@ service cloud.firestore {
     // ===============================================================
     // Rules
     // ===============================================================
+    // PIN-protected shared drafts (GNmail users only).
+    // Content is client-side AES-256-GCM encrypted; the PIN never reaches the
+    // server, so readable-by-any-signed-in-user is safe — without the PIN the
+    // ciphertext is useless. No updates: shares are immutable once published.
+    match /sharedDrafts/{code} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+                       request.resource.data.ownerUid == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['ownerUid', 'salt', 'iv', 'ciphertext']) &&
+                       request.resource.data.ciphertext is string &&
+                       request.resource.data.ciphertext.size() < 200000;
+      allow update: if false;
+      allow delete: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(request.resource.data);

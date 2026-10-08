@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="gn_brand">#2563EB</color>
+    <color name="gn_brand_end">#0891B2</color>
+    <color name="gn_background">#F8FAFC</color>
+    <color name="gn_background_dark">#020617</color>
+</resources>

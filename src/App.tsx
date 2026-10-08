@@ -58,7 +58,7 @@ export default function App() {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [draftToEdit, setDraftToEdit] = useState<EmailDraft | undefined>(undefined);
   const [isDeliverabilityGuideOpen, setIsDeliverabilityGuideOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 1024);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showLanding, setShowLanding] = useState(true);
@@ -339,18 +339,31 @@ export default function App() {
       {/* Sidebar */}
       <AnimatePresence mode="wait">
         {isSidebarOpen && (
-          <motion.aside 
+          <>
+          <motion.div
+            key="sidebar-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-20 lg:hidden"
+          />
+          <motion.aside
+            key="sidebar"
             initial={{ x: -300 }}
             animate={{ x: 0 }}
             exit={{ x: -300 }}
-            className="w-72 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-950 z-20"
+            onClick={(e) => {
+              if (window.innerWidth < 1024 && (e.target as HTMLElement).closest('button')) setIsSidebarOpen(false);
+            }}
+            className="fixed inset-y-0 left-0 lg:static w-72 max-w-[85vw] h-full border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-950 z-30 shadow-2xl lg:shadow-none"
           >
             <div className="p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-900 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-lg shadow-blue-500/10">
                   <Logo className="w-6 h-6" />
                 </div>
-                <span className="font-display text-xl tracking-tight uppercase text-slate-900 dark:text-white">Gazneftgroups</span>
+                <span className="font-display text-xl tracking-tight uppercase text-slate-900 dark:text-white">GNmail</span>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 hover:text-slate-600 dark:hover:text-white">
                 <X size={20} />
@@ -419,19 +432,20 @@ export default function App() {
               </div>
             </div>
           </motion.aside>
+          </>
         )}
       </AnimatePresence>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900/50">
-        <header className="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-white/80 dark:bg-slate-950/50 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
+        <header className="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 px-3 sm:px-6 bg-white/80 dark:bg-slate-950/50 backdrop-blur-xl">
+          <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
             {!isSidebarOpen && (
-              <button onClick={() => setIsSidebarOpen(true)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 dark:hover:text-white" aria-label="Open menu">
                 <Menu size={20} />
               </button>
             )}
-            <div className="relative w-96 max-w-full">
+            <div className="relative w-full sm:w-72 lg:w-96">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
@@ -442,8 +456,8 @@ export default function App() {
               />
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
+          <div className="flex items-center gap-1 sm:gap-3 flex-none">
+            <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="p-2 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all"
             >

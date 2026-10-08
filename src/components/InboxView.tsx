@@ -582,7 +582,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
                           e.stopPropagation();
                           toggleReadStatus(msg);
                         }}
-                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all"
+                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
                         title={msg.isRead ? "Mark as unread" : "Mark as read"}
                       >
                         {msg.isRead ? <Mail size={14} /> : <MailOpen size={14} />}
@@ -592,7 +592,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
                           e.stopPropagation();
                           setShowSnoozeModal(msg.id);
                         }}
-                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-yellow-600 dark:hover:text-yellow-400 opacity-0 group-hover:opacity-100 transition-all"
+                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-yellow-600 dark:hover:text-yellow-400 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
                         title="Snooze"
                       >
                         <Clock size={14} />
@@ -647,27 +647,27 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
       )}>
         {selectedMessage ? (
           <>
-            <header className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/80 dark:bg-slate-950/50 backdrop-blur-xl sticky top-0 z-10">
-              <div className="flex items-center gap-4">
-                <button onClick={() => setSelectedMessage(null)} className="lg:hidden text-slate-400 hover:text-slate-600 dark:hover:text-white">
+            <header className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 dark:bg-slate-950/50 backdrop-blur-xl sticky top-0 z-10">
+              <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+                <button onClick={() => setSelectedMessage(null)} className="lg:hidden p-1 -ml-1 flex-none text-slate-400 hover:text-slate-600 dark:hover:text-white" aria-label="Back to inbox">
                   <ChevronRight className="rotate-180" size={20} />
                 </button>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">{selectedMessage.subject}</h2>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-slate-500">From:</span>
-                    <span className="text-blue-600 dark:text-blue-400 font-medium">{selectedMessage.from}</span>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-1 break-words">{selectedMessage.subject}</h2>
+                  <div className="flex items-center gap-2 text-sm min-w-0">
+                    <span className="text-slate-500 flex-none">From:</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-medium truncate">{selectedMessage.from}</span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 flex-wrap flex-none">
                 <button 
                   onClick={handleSummarize}
                   disabled={isSummarizing}
                   className="flex items-center gap-2 px-3 py-2 bg-blue-600/10 text-blue-600 dark:text-blue-400 hover:bg-blue-600/20 rounded-lg transition-all text-sm font-medium"
                 >
                   <Sparkles size={16} className={cn(isSummarizing && "animate-pulse")} />
-                  {isSummarizing ? "Summarizing..." : "Summarize"}
+                  <span className="hidden sm:inline">{isSummarizing ? "Summarizing..." : "Summarize"}</span>
                 </button>
                 <button 
                   onClick={() => handleSaveAsTemplate(selectedMessage)}
@@ -701,7 +701,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
               </div>
             </header>
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <div className="p-8 max-w-4xl mx-auto">
+              <div className="p-4 sm:p-8 max-w-4xl mx-auto">
                 <AnimatePresence>
                   {summary && (
                     <motion.div 

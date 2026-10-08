@@ -11,6 +11,10 @@ sealed interface AppResult<out T> {
 
 enum class AppError(val userMessage: String) {
     NETWORK("No connection. Showing cached mail — pull to retry."),
+    OFFLINE("Can't reach GNmail. Check your connection and try again."),
+    INVALID_CREDENTIALS("Wrong email or password."),
+    EMAIL_IN_USE("An account with this email already exists. Sign in instead."),
+    WEAK_PASSWORD("Use a password of at least 6 characters."),
     AUTH_EXPIRED("Your email connection has expired. Re-add this account in Settings."),
     RATE_LIMITED("Too many requests right now. Please wait a moment."),
     SERVER("Something went wrong on our side. Please try again."),

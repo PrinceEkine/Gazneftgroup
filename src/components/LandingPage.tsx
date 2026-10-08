@@ -7,8 +7,9 @@ import {
   ShieldCheck, 
   Zap, 
   Layers, 
-  Globe, 
-  Lock, 
+  Globe,
+  Lock,
+  Smartphone,  
   ChevronRight, 
   ArrowRight,
   CheckCircle2,
@@ -42,35 +43,39 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
             <div className="relative w-11 h-11 bg-slate-900 dark:bg-white/5 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 group cursor-pointer overflow-hidden border border-slate-200 dark:border-white/10 hover:scale-105 transition-all">
               <Logo className="w-8 h-8" />
             </div>
-            <span className="font-display text-2xl tracking-tight text-slate-900 dark:text-white uppercase">Gazneftgroups</span>
+            <span className="font-display text-2xl tracking-tight text-slate-900 dark:text-white uppercase">GNmail</span>
           </div>
-          
+
           <div className="hidden md:flex items-center gap-8">
             <NavLink href="#features">Features</NavLink>
             <NavLink href="#security">Security</NavLink>
             <NavLink href="#ai">AI Tools</NavLink>
-            <button 
-              onClick={() => onGetStarted('login')}
-              className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
-            >
-              Login
-            </button>
-            <button 
+            <NavLink href="#android">Android</NavLink>
+          </div>
+
+          <div className="flex items-center gap-1 sm:gap-3">
+            <button
               onClick={onToggleTheme}
               className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
               title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              aria-label={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
+            <button
+              onClick={() => onGetStarted('login')}
+              className="px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => onGetStarted('register')}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 sm:px-6 rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 text-sm sm:text-base"
+            >
+              Get Started
+              <ChevronRight size={18} />
+            </button>
           </div>
-
-          <button 
-            onClick={() => onGetStarted('register')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
-          >
-            Get Started
-            <ChevronRight size={18} />
-          </button>
         </div>
       </nav>
 
@@ -99,16 +104,15 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
             </div>
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8">
               <Sparkles size={14} />
-              The Future of Webmail
+              Private mail by Gazneftgroup
             </span>
-            <h1 className="text-[18vw] md:text-[15vw] lg:text-[12vw] font-display text-slate-900 dark:text-white mb-4 tracking-tight leading-[0.8] uppercase">
-              Gazneft <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-b from-blue-400 to-blue-700">Groups.</span>
+            <h1 className="text-[22vw] md:text-[16vw] lg:text-[12vw] font-display text-slate-900 dark:text-white mb-4 tracking-tight leading-[0.8] uppercase">
+              GN<span className="text-transparent bg-clip-text bg-gradient-to-b from-blue-400 to-blue-700">mail.</span>
             </h1>
             <div className="max-w-xl mx-auto mb-12">
               <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
-                Manage up to 20 accounts in one unified, AI-powered interface. 
-                Built for speed, privacy, and deliverability.
+                All your accounts in one encrypted inbox, on the web and on Android.
+                Fast to read, safe to share, no ads and no tracking.
               </p>
             </div>
             
@@ -120,9 +124,12 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
                 Start for Free
                 <ArrowRight size={20} />
               </button>
-              <button className="w-full sm:w-auto bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold py-4 px-10 rounded-2xl transition-all border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 text-lg">
-                View Demo
-              </button>
+              <a
+                href="#preview"
+                className="w-full sm:w-auto bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold py-4 px-10 rounded-2xl transition-all border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 text-lg"
+              >
+                See the inbox
+              </a>
             </div>
           </motion.div>
 
@@ -136,17 +143,16 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
             <div className="absolute inset-0 bg-blue-600/20 blur-[100px] -z-10 rounded-full" />
             
             {/* Hero Visual Area */}
-            <motion.div 
+            <motion.div
+              id="preview"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1, delay: 0.4 }}
-              className="mb-16 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] group relative"
+              className="mb-16 scroll-mt-28 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] group relative"
             >
-              <img 
-                src="https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2029&auto=format&fit=crop" 
-                alt="Gazneftgroups Dashboard Background" 
-                className="w-full h-[400px] md:h-[500px] object-cover opacity-40 dark:opacity-30 group-hover:opacity-50 transition-all duration-1000 group-hover:scale-105"
-                referrerPolicy="no-referrer"
+              <div
+                aria-hidden="true"
+                className="w-full h-[400px] md:h-[500px] bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.35),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(124,58,237,0.25),transparent_55%)] bg-slate-100 dark:bg-slate-900 group-hover:scale-105 transition-transform duration-1000"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-slate-950 via-transparent to-transparent" />
               
@@ -186,8 +192,8 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
                     transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
                     className="absolute top-[50%] right-[15%] p-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-xl border border-green-500/30 shadow-2xl flex items-center gap-2"
                   >
-                    <ShieldCheck size={14} className="text-green-500" />
-                    <span className="text-[10px] font-bold text-slate-900 dark:text-white">Deliverability: 99.9%</span>
+                    <Lock size={14} className="text-green-500" />
+                    <span className="text-[10px] font-bold text-slate-900 dark:text-white">PIN-protected share</span>
                   </motion.div>
                 </div>
               </div>
@@ -199,7 +205,7 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
                   <span className="text-blue-600 dark:text-blue-400">Reimagined with AI.</span>
                 </h3>
                 <p className="text-sm md:text-base text-slate-600 dark:text-slate-400 max-w-md font-medium">
-                  Experience the first webmail client designed for the modern era of intelligence and speed.
+                  One place for every account you own, with AI that summarises and replies when you want it to.
                 </p>
               </div>
             </motion.div>
@@ -280,24 +286,22 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
             <FeatureCard 
               icon={<Layers className="text-blue-500" />}
               title="Multi-Account Sync"
-              description="Connect up to 20 IMAP/SMTP accounts including Gmail, Outlook, and custom domains."
+              description="Connect Gmail, Outlook and any IMAP/SMTP mailbox. Read and reply to all of them from one inbox."
             />
             <FeatureCard 
               icon={<Zap className="text-yellow-500" />}
               title="Instant Deliverability"
               description="AI-powered spam analysis ensures your emails land in the inbox, not the junk folder."
             />
-            <div id="ai">
-              <FeatureCard 
-                icon={<Sparkles className="text-purple-500" />}
-                title="Smart AI Tools"
-                description="Summarize long threads and generate professional replies in seconds with Gemini AI."
-              />
-            </div>
+            <FeatureCard
+              icon={<Sparkles className="text-purple-500" />}
+              title="Smart AI Tools"
+              description="Summarize long threads and generate professional replies in seconds with Gemini AI."
+            />
             <FeatureCard 
               icon={<ShieldCheck className="text-green-500" />}
-              title="End-to-End Security"
-              description="OAuth 2.0 support and encrypted storage keep your credentials and data safe."
+              title="Encrypted Sharing"
+              description="Share a draft with a six-digit PIN. It is encrypted on your device with AES-256 and only the PIN can open it."
             />
             <FeatureCard 
               icon={<MessageSquare className="text-pink-500" />}
@@ -306,8 +310,8 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
             />
             <FeatureCard 
               icon={<Layout className="text-orange-500" />}
-              title="Modern Interface"
-              description="A sleek, dark-mode first UI designed for maximum productivity and minimal eye strain."
+              title="Web and Android"
+              description="The same inbox on your desktop and in your pocket. Mail is cached on the phone so it opens offline."
             />
           </div>
         </div>
@@ -413,19 +417,77 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
         </div>
       </section>
 
+      {/* Android Section */}
+      <section id="android" className="py-32 px-6 bg-white dark:bg-slate-950 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl h-full bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16">
+          <div className="flex-1">
+            <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-8 border border-blue-500/20">
+              <Smartphone className="text-blue-500 w-8 h-8" />
+            </div>
+            <h2 className="text-5xl md:text-7xl font-display text-slate-900 dark:text-white mb-8 leading-[0.85] uppercase">Also on <br />Android.</h2>
+            <p className="text-slate-600 dark:text-slate-400 text-lg mb-8 font-medium">
+              Sign in with the same GNmail account and your connected mailboxes are already there. Nothing to set up twice.
+            </p>
+            <div className="space-y-4 mb-10">
+              {[
+                "Inbox cached on the phone, so it opens with no signal",
+                "Push notification when new mail arrives",
+                "Open PIN-protected drafts shared from the web",
+              ].map((line) => (
+                <div key={line} className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <span>{line}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Coming to Google Play. Early builds are available to Gazneftgroup teams.</p>
+          </div>
+          <div className="flex-1 w-full flex justify-center">
+            <div className="w-[280px] rounded-[2.5rem] border-[6px] border-slate-900 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 shadow-2xl shadow-blue-600/20 p-5 pt-10 relative">
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 w-20 h-1.5 rounded-full bg-slate-900 dark:bg-slate-700" />
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 text-center">
+                <div className="mx-auto w-16 h-16 rounded-2xl bg-slate-950 border border-white/10 flex items-center justify-center mb-5">
+                  <Logo className="w-10 h-10" />
+                </div>
+                <p className="font-display text-2xl uppercase text-slate-900 dark:text-white leading-none mb-1">Welcome back</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Sign in to your GNmail workspace.</p>
+                <div className="text-left space-y-3">
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">Email address</p>
+                    <div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border-2 border-blue-500/60 flex items-center px-3 gap-2">
+                      <Mail size={12} className="text-slate-500" />
+                      <div className="h-2.5 w-28 rounded bg-slate-300 dark:bg-slate-600" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">Password</p>
+                    <div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center px-3 gap-2">
+                      <Lock size={12} className="text-slate-500" />
+                      <div className="h-2.5 w-16 rounded bg-slate-300 dark:bg-slate-600" />
+                    </div>
+                  </div>
+                  <div className="h-11 rounded-xl bg-blue-600 flex items-center justify-center text-white text-sm font-bold">Sign in</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-32 px-6 text-center relative overflow-hidden bg-white dark:bg-slate-950">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-full bg-blue-600/5 blur-[120px] rounded-full pointer-events-none" />
         <div className="max-w-3xl mx-auto relative z-10">
           <h2 className="text-[12vw] md:text-[10vw] font-display text-slate-900 dark:text-white mb-8 leading-[0.8] uppercase">Ready to <br />upgrade?</h2>
-          <p className="text-lg text-slate-600 dark:text-slate-400 mb-12 leading-relaxed font-medium">Join thousands of power users who trust Gazneftgroups for their professional communication.</p>
+          <p className="text-lg text-slate-600 dark:text-slate-400 mb-12 leading-relaxed font-medium">Built for Gazneftgroup teams and for anyone who wants their mail private, fast and in one place.</p>
           <button 
             onClick={() => onGetStarted('register')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-5 px-12 rounded-2xl transition-all shadow-2xl shadow-blue-600/30 text-xl"
           >
             Get Started Now
           </button>
-          <p className="mt-6 text-sm text-slate-400 dark:text-slate-500">No credit card required. Free forever for basic use.</p>
+          <p className="mt-6 text-sm text-slate-400 dark:text-slate-500">Sign up with an email address. No card needed.</p>
         </div>
       </section>
 
@@ -434,12 +496,12 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Mail className="text-white w-5 h-5" />
+              <div className="w-8 h-8 bg-slate-950 border border-white/10 rounded-lg flex items-center justify-center">
+                <Logo className="w-5 h-5" />
               </div>
-              <span className="font-display text-xl text-slate-900 dark:text-white uppercase tracking-tight">Gazneftgroups</span>
+              <span className="font-display text-xl text-slate-900 dark:text-white uppercase tracking-tight">GNmail</span>
             </div>
-            <p className="text-slate-500 dark:text-slate-500 max-w-sm">The ultimate webmail client for power users. Secure, fast, and powered by AI.</p>
+            <p className="text-slate-500 dark:text-slate-500 max-w-sm">Private mail by Gazneftgroup. One encrypted inbox for every account, on the web and on Android.</p>
           </div>
           <div>
             <h4 className="text-slate-900 dark:text-white font-bold mb-6">Product</h4>
@@ -447,13 +509,12 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
               <li><a href="#features" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Features</a></li>
               <li><a href="#security" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Security</a></li>
               <li><a href="#ai" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">AI Tools</a></li>
-              <li><a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Pricing</a></li>
+              <li><a href="#android" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Android app</a></li>
             </ul>
           </div>
           <div>
             <h4 className="text-slate-900 dark:text-white font-bold mb-6">Company</h4>
             <ul className="space-y-4 text-sm text-slate-500">
-              <li><a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">About</a></li>
               <li>
                 <a 
                   href="/?page=privacy" 
@@ -463,13 +524,11 @@ export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, o
                   Privacy Policy
                 </a>
               </li>
-              <li><a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Terms</a></li>
-              <li><a href="#" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Contact</a></li>
             </ul>
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-slate-200 dark:border-slate-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-400 dark:text-slate-600">© 2026 Gazneftgroups. All rights reserved.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-600">© 2026 Gazneftgroup. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <Globe size={16} className="text-slate-400 dark:text-slate-600" />
             <span className="text-xs text-slate-400 dark:text-slate-600">English (US)</span>

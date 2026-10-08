@@ -5,6 +5,16 @@ Group by surface: **web**, **android**, **admin**, **infra**, **docs**.
 
 ## 2026-10-08
 
+- **android**: Sign-in now reports the real cause (wrong password, account
+  exists, weak password, offline, rate limited) instead of the inbox offline
+  message. A failed profile-document write no longer fails the sign-in.
+- **web**: Landing page rebranded to GNmail, Android section added, dead
+  "View Demo"/Pricing/Terms links removed, stock photo replaced by a brand
+  gradient (no external download), duplicate `id="ai"` fixed, nav usable on
+  phones.
+- **web**: Dashboard responsive on phones: sidebar is an overlay under 1024px
+  and closes after a tap, header and reading-pane toolbar wrap, row actions
+  visible on touch screens.
 - **android**: Full UI pass to match the website's design language. New theme
   (brand palette, Anton display font, shapes), vector logo drawn from the web
   `Logo.tsx` paths, website-style auth card, inbox rows with the blue unread

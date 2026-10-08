@@ -24,8 +24,9 @@ android {
 
     buildTypes {
         debug {
-            // Local dev server (Android emulator loopback). Override per-environment via CI.
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000\"")
+            // Debug talks to the live Netlify proxy so testers need no local server.
+            // To hit a server on your PC from the emulator, use "http://10.0.2.2:3000".
+            buildConfigField("String", "API_BASE_URL", "\"https://gazneftgroup.netlify.app\"")
             isMinifyEnabled = false
         }
         release {

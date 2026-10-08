@@ -43,12 +43,12 @@ object DraftCrypto {
 
     /** @throws javax.crypto.AEADBadTagException when the PIN is wrong. */
     fun decrypt(encrypted: Encrypted, pin: String): String {
-        val salt = Base64.decode(encrypted.saltB64, Base64.NO_WRAP)
-        val iv = Base64.decode(encrypted.ivB64, Base64.NO_WRAP)
+        val salt = Base64.getDecoder().decode(encrypted.saltB64)
+        val iv = Base64.getDecoder().decode(encrypted.ivB64)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
             init(Cipher.DECRYPT_MODE, deriveKey(pin, salt), GCMParameterSpec(GCM_TAG_BITS, iv))
         }
-        val plaintext = cipher.doFinal(Base64.decode(encrypted.ciphertextB64, Base64.NO_WRAP))
+        val plaintext = cipher.doFinal(Base64.getDecoder().decode(encrypted.ciphertextB64))
         return String(plaintext, Charsets.UTF_8)
     }
 

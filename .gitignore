@@ -6,3 +6,20 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+
+# Android (mobile/)
+mobile/.gradle/
+mobile/.kotlin/
+mobile/local.properties
+mobile/app/local.properties
+mobile/captures/
+mobile/.cxx/
+*.apk
+*.aab
+*.jks
+*.keystore

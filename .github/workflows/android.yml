@@ -1,0 +1,148 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # needed only to attach APKs to tag releases
+
+env:
+  # Keep CI's JVM on the same major as local Android Studio builds.
+  JAVA_VERSION: "17"
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Gradle (with dependency cache)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      # Optional: override the committed google-services.json from a secret
+      # (base64 of the file). Lets forks/CI use a different Firebase project.
+      - name: Restore google-services.json from secret
+        if: ${{ env.GOOGLE_SERVICES_JSON_B64 != '' }}
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > app/google-services.json
+
+      - name: Unit tests
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnmail-debug-apk
+          path: mobile/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: mobile/app/build/reports/tests/
+          if-no-files-found: ignore
+
+  release:
+    name: Signed release (tags only)
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Restore google-services.json from secret
+        if: ${{ env.GOOGLE_SERVICES_JSON_B64 != '' }}
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > app/google-services.json
+
+      # Signing is opt-in: add ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD,
+      # ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD as repository secrets.
+      # Without them the job still produces an unsigned release build.
+      - name: Decode signing keystore
+        if: ${{ env.ANDROID_KEYSTORE_B64 != '' }}
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Build release APK + AAB
+        env:
+          GN_KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          GN_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          GN_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          GN_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnmail-release
+          path: |
+            mobile/app/build/outputs/apk/release/*.apk
+            mobile/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+
+      - name: Attach to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            mobile/app/build/outputs/apk/release/*.apk
+            mobile/app/build/outputs/bundle/release/*.aab
+          generate_release_notes: true

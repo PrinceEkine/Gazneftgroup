@@ -1,6 +1,6 @@
 package com.gazneftgroup.mail.core.crypto
 
-import android.util.Base64
+import java.util.Base64
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
@@ -35,9 +35,9 @@ object DraftCrypto {
         }
         val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
         return Encrypted(
-            saltB64 = Base64.encodeToString(salt, Base64.NO_WRAP),
-            ivB64 = Base64.encodeToString(iv, Base64.NO_WRAP),
-            ciphertextB64 = Base64.encodeToString(ciphertext, Base64.NO_WRAP),
+            saltB64 = Base64.getEncoder().encodeToString(salt),
+            ivB64 = Base64.getEncoder().encodeToString(iv),
+            ciphertextB64 = Base64.getEncoder().encodeToString(ciphertext),
         )
     }
 

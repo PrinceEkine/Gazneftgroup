@@ -10,6 +10,7 @@ Group by surface: **web**, **android**, **admin**, **infra**, **docs**.
   `Logo.tsx` paths, website-style auth card, inbox rows with the blue unread
   marker and two-line snippets, reading pane with tonal Reply, discard
   confirmation on Compose. Added `MailFormat` helpers with unit tests.
+- **android**: `DraftCrypto` now uses `java.util.Base64` (same output as the Android class, unit-testable on the JVM).
 - **android**: Launcher icon and Android 12+ splash use the brand gradient tile.
 - **android**: Removed the machine-specific `org.gradle.java.home` from the
   project `gradle.properties` so CI builds; set `JAVA_HOME` locally or put the

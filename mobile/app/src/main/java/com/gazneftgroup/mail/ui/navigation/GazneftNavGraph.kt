@@ -14,6 +14,7 @@ import com.gazneftgroup.mail.ui.auth.SignInScreen
 import com.gazneftgroup.mail.ui.compose.ComposeEmailScreen
 import com.gazneftgroup.mail.ui.inbox.InboxScreen
 import com.gazneftgroup.mail.ui.message.MessageDetailScreen
+import com.gazneftgroup.mail.ui.theme.GazneftMotion
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -41,7 +42,11 @@ fun GazneftNavGraph(authViewModel: AuthViewModel = hiltViewModel()) {
         navController = navController,
         startDestination = if (user != null) Routes.INBOX else Routes.SIGN_IN,
     ) {
-        composable(Routes.SIGN_IN) {
+        composable(
+            Routes.SIGN_IN,
+            enterTransition = { GazneftMotion.fadeEnter },
+            exitTransition = { GazneftMotion.fadeExit },
+        ) {
             SignInScreen(
                 onSignedIn = {
                     navController.navigate(Routes.INBOX) {
@@ -50,7 +55,13 @@ fun GazneftNavGraph(authViewModel: AuthViewModel = hiltViewModel()) {
                 },
             )
         }
-        composable(Routes.INBOX) {
+        composable(
+            Routes.INBOX,
+            enterTransition = { GazneftMotion.fadeEnter },
+            exitTransition = { GazneftMotion.pushExit },
+            popEnterTransition = { GazneftMotion.popEnter },
+            popExitTransition = { GazneftMotion.fadeExit },
+        ) {
             InboxScreen(
                 onOpenMessage = { navController.navigate(Routes.message(it)) },
                 onCompose = { accountId -> navController.navigate(Routes.compose(accountId)) },
@@ -65,6 +76,10 @@ fun GazneftNavGraph(authViewModel: AuthViewModel = hiltViewModel()) {
         composable(
             Routes.MESSAGE,
             arguments = listOf(navArgument("messageId") { type = NavType.StringType }),
+            enterTransition = { GazneftMotion.pushEnter },
+            exitTransition = { GazneftMotion.pushExit },
+            popEnterTransition = { GazneftMotion.popEnter },
+            popExitTransition = { GazneftMotion.popExit },
         ) {
             MessageDetailScreen(
                 onBack = { navController.popBackStack() },
@@ -80,6 +95,10 @@ fun GazneftNavGraph(authViewModel: AuthViewModel = hiltViewModel()) {
                 navArgument("to") { type = NavType.StringType; defaultValue = "" },
                 navArgument("subject") { type = NavType.StringType; defaultValue = "" },
             ),
+            enterTransition = { GazneftMotion.pushEnter },
+            exitTransition = { GazneftMotion.pushExit },
+            popEnterTransition = { GazneftMotion.popEnter },
+            popExitTransition = { GazneftMotion.popExit },
         ) {
             ComposeEmailScreen(onDone = { navController.popBackStack() })
         }

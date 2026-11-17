@@ -21,7 +21,7 @@
         "id": { "type": "string" },
         "ownerUid": { "type": "string" },
         "email": { "type": "string", "format": "email" },
-        "provider": { "type": "string", "enum": ["gmail", "outlook", "custom"] },
+        "provider": { "type": "string", "enum": ["gmail", "outlook", "gnmail", "custom"] },
         "imapHost": { "type": "string" },
         "imapPort": { "type": "number" },
         "smtpHost": { "type": "string" },

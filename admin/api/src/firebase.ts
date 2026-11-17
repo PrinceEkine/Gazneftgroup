@@ -18,4 +18,15 @@ const app = initializeApp({
 });
 
 export const adminAuth = getAuth(app);
-export const adminDb = getFirestore(app);
+
+/**
+ * Named-database rule: the web app reads/writes a NON-default Firestore
+ * database (see firebase-applet-config.json `firestoreDatabaseId`), so the
+ * admin API must open that same database or it will see an empty project
+ * (zero accounts, zero audit history). Override with FIRESTORE_DATABASE_ID
+ * when the project moves.
+ */
+const databaseId =
+  process.env.FIRESTORE_DATABASE_ID ?? "ai-studio-8d1e68ad-6f15-40e6-9245-d509752bfc2d";
+console.log(`[admin-api] using Firestore database "${databaseId}"`);
+export const adminDb = getFirestore(app, databaseId);

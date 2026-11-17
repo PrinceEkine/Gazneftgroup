@@ -11,6 +11,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gazneftgroup.mail.BuildConfig
 import com.gazneftgroup.mail.core.common.AppError
+import com.gazneftgroup.mail.core.common.FirebaseSetup
 import com.gazneftgroup.mail.core.common.AppResult
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -56,6 +57,10 @@ class AuthViewModel @Inject constructor(
      * sign-in and sign-up, as on the website.
      */
     fun signInWithGoogle(activityContext: Context) {
+        if (FirebaseSetup.isPlaceholderProject(BuildConfig.FIREBASE_PROJECT_ID)) {
+            _uiState.value = AuthUiState(error = AppError.FIREBASE_NOT_CONFIGURED.userMessage)
+            return
+        }
         val clientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
         if (clientId.isBlank()) {
             _uiState.value = AuthUiState(error = AppError.GOOGLE_NOT_CONFIGURED.userMessage)
@@ -101,6 +106,10 @@ class AuthViewModel @Inject constructor(
     fun signOut() = authRepository.signOut()
 
     private fun authenticate(block: suspend () -> AppResult<UserProfile>) {
+        if (FirebaseSetup.isPlaceholderProject(BuildConfig.FIREBASE_PROJECT_ID)) {
+            _uiState.value = AuthUiState(error = AppError.FIREBASE_NOT_CONFIGURED.userMessage)
+            return
+        }
         viewModelScope.launch {
             _uiState.value = AuthUiState(isLoading = true)
             _uiState.value = when (val result = block()) {

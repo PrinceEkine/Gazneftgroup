@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { summarizeEmail, detectPriority, generateSmartReplies } from '../services/geminiService';
 import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
+import { ImportDraftModal } from './DraftShareDialog';
 
 interface Props {
   accountId: string | 'all';
@@ -29,6 +30,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
   const [isUpdatingFlags, setIsUpdatingFlags] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [showSnoozeModal, setShowSnoozeModal] = useState<string | null>(null);
+  const [showImportDraft, setShowImportDraft] = useState(false);
   const [limit, setLimit] = useState(20);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
 
@@ -494,6 +496,16 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
             >
               Mark all read
             </button>
+            {folder === 'drafts' && (
+              <button
+                onClick={() => setShowImportDraft(true)}
+                disabled={accounts.length === 0}
+                className="text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors disabled:opacity-40"
+                title={accounts.length === 0 ? "Link a mailbox first" : "Import a PIN-shared draft"}
+              >
+                Import shared
+              </button>
+            )}
           </div>
           <span className="text-xs text-slate-500 font-medium bg-slate-200 dark:bg-slate-800 px-2 py-1 rounded-full">
             {allDisplayMessages.length} Messages
@@ -798,6 +810,15 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
           </div>
         )}
       </div>
+
+      {showImportDraft && onOpenDraft && (
+        <ImportDraftModal
+          defaultAccountId={accountId === 'all' ? (accounts[0]?.id ?? '') : (accountId as string)}
+          userId={auth.currentUser?.uid ?? ''}
+          onImport={(draft) => onOpenDraft(draft)}
+          onClose={() => setShowImportDraft(false)}
+        />
+      )}
 
       {/* Snooze Modal */}
       <AnimatePresence>

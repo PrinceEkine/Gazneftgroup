@@ -1,6 +1,7 @@
 package com.gazneftgroup.mail.ui.util
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.util.Calendar
@@ -49,5 +50,17 @@ class MailFormatTest {
         // Locale-dependent formatting; assert on shape rather than exact text.
         assert(today.contains("7")) { "expected a time, got $today" }
         assert(thisYear.contains("8") && thisYear.length <= 8) { "expected 'd MMM', got $thisYear" }
+    }
+
+    @Test
+    fun `avatar index is stable case-insensitively and in range`() {
+        val first = MailFormat.avatarColorIndex("Jane <jane@example.com>", 10)
+        assertEquals(first, MailFormat.avatarColorIndex("JANE <JANE@EXAMPLE.COM>", 10))
+        assertTrue(first in 0 until 10)
+    }
+
+    @Test
+    fun `avatar index handles an empty palette`() {
+        assertEquals(0, MailFormat.avatarColorIndex("a@b.c", 0))
     }
 }

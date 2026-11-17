@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { X, Send, Paperclip, Image, Smile, MoreHorizontal, Trash2, ChevronDown, FileText, Save, Loader2, Mail, ShieldCheck, AlertTriangle, CheckCircle2, Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Code } from 'lucide-react';
+import { X, Send, Paperclip, Image, Smile, MoreHorizontal, Trash2, ChevronDown, FileText, Save, Loader2, Mail, Share2, ShieldCheck, AlertTriangle, CheckCircle2, Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, Code } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { EmailAccount, EmailTemplate, EmailDraft } from '../types';
 import { cn } from '../lib/utils';
 import { collection, addDoc, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import TemplateSelector from './TemplateSelector';
+import { ShareDraftPopover } from './DraftShareDialog';
 import { GoogleGenAI } from "@google/genai";
 
 interface Props {
@@ -40,6 +41,7 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<DeliverabilityAnalysis | null>(null);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [showSharePopover, setShowSharePopover] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(initialDraft?.id || null);
@@ -700,6 +702,22 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
                     {isSavingTemplate ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                     <span className="text-xs font-medium hidden md:inline">Save Template</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTemplateSelector(false);
+                      setShowSharePopover(!showSharePopover);
+                    }}
+                    disabled={!to && !subject && !body}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-lg transition-all disabled:opacity-50",
+                      showSharePopover ? "bg-blue-600 text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800"
+                    )}
+                    title="Share draft securely (PIN-protected, GNmail users only)"
+                  >
+                    <Share2 size={18} />
+                    <span className="text-xs font-medium hidden md:inline">Share</span>
+                  </button>
 
                   <AnimatePresence>
                     {showTemplateSelector && (
@@ -707,6 +725,15 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
                         user={user} 
                         onSelect={handleSelectTemplate} 
                         onClose={() => setShowTemplateSelector(false)} 
+                      />
+                    )}
+                  </AnimatePresence>
+
+                  <AnimatePresence>
+                    {showSharePopover && (
+                      <ShareDraftPopover
+                        draft={{ to, subject, body }}
+                        onClose={() => setShowSharePopover(false)}
                       />
                     )}
                   </AnimatePresence>

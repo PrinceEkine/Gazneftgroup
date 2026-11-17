@@ -24,6 +24,9 @@ Two services:
    ```
 
 3. Run the API: `npm run dev` (port 4000; same credentials env var).
+   The API opens the web app's named Firestore database automatically
+   (default matches `firestoreDatabaseId` in `firebase-applet-config.json`);
+   override with `FIRESTORE_DATABASE_ID` only if the project moves.
 4. Run the web app:
 
    ```bash

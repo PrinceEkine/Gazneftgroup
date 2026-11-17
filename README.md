@@ -50,6 +50,14 @@ goes through the Admin API, which requires the `admin: true` custom claim and
 writes every mutation to an append-only audit log. Details and the scaling
 rationale are in [ARCHITECTURE.md](ARCHITECTURE.md).
 
+All three surfaces share one Firebase project and one Firestore database —
+a named database, see `firestoreDatabaseId` in
+[`firebase-applet-config.json`](firebase-applet-config.json), not `(default)`.
+The Android `google-services.json` must be downloaded from that same project
+(steps in [`mobile/README.md`](mobile/README.md)), and the admin API opens
+the same database via `FIRESTORE_DATABASE_ID`. If sign-in works on web but
+the app shows no accounts, the Firebase wiring has drifted — start there.
+
 ## Running things
 
 | Task | Command |

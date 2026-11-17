@@ -16,6 +16,7 @@ enum class AppError(val userMessage: String) {
     EMAIL_IN_USE("An account with this email already exists. Sign in instead."),
     WEAK_PASSWORD("Use a password of at least 6 characters."),
     GOOGLE_NOT_CONFIGURED("Google sign-in isn't set up for this build yet. Use email and password."),
+    FIREBASE_NOT_CONFIGURED("This build isn't linked to the GNmail database yet, so the web sign-in won't work here. Add the Android app in the Firebase console and update google-services.json (steps in mobile/README)."),
     NO_GOOGLE_ACCOUNT("No Google account found on this phone. Add one in Settings and try again."),
     AUTH_EXPIRED("Your email connection has expired. Re-add this account in Settings."),
     RATE_LIMITED("Too many requests right now. Please wait a moment."),

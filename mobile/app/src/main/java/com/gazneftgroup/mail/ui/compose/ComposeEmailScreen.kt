@@ -1,6 +1,7 @@
 package com.gazneftgroup.mail.ui.compose
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -169,20 +170,27 @@ fun ComposeEmailScreen(
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.padding(end = 12.dp),
                     ) {
-                        if (uiState.isSending) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        } else {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.Send,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Send")
+                        AnimatedContent(
+                            targetState = uiState.isSending,
+                            label = "sendState",
+                        ) { sending ->
+                            if (sending) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            } else {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.AutoMirrored.Outlined.Send,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Send")
+                                }
+                            }
                         }
                     }
                 },

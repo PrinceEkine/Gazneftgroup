@@ -2,6 +2,7 @@ package com.gazneftgroup.mail.ui.inbox
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -69,6 +70,8 @@ import com.gazneftgroup.mail.domain.model.EmailMessage
 import com.gazneftgroup.mail.domain.model.MailFolder
 import com.gazneftgroup.mail.ui.components.BrandMark
 import com.gazneftgroup.mail.ui.components.EmptyState
+import com.gazneftgroup.mail.ui.components.SenderAvatar
+import com.gazneftgroup.mail.ui.components.ShimmerInboxRow
 import com.gazneftgroup.mail.ui.theme.BrandColors
 import com.gazneftgroup.mail.ui.util.MailFormat
 
@@ -228,15 +231,19 @@ fun InboxScreen(
                         key = messages.itemKey { it.id },
                     ) { index ->
                         messages[index]?.let { message ->
-                            MessageRow(
-                                message = message,
-                                accountColor = if (accounts.size > 1) selectedAccount?.let { parseAccountColor(it.color) } else null,
-                                onClick = {
-                                    viewModel.markRead(message)
-                                    onOpenMessage(message.id)
-                                },
-                            )
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            // animateItem glides rows when the list reorders
+                            // (new mail, read-state changes) instead of jumping.
+                            Column(modifier = Modifier.animateItem()) {
+                                MessageRow(
+                                    message = message,
+                                    accountColor = if (accounts.size > 1) selectedAccount?.let { parseAccountColor(it.color) } else null,
+                                    onClick = {
+                                        viewModel.markRead(message)
+                                        onOpenMessage(message.id)
+                                    },
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
                         }
                     }
 
@@ -244,7 +251,7 @@ fun InboxScreen(
                     val append = messages.loadState.append
                     when {
                         refresh is LoadState.Loading && messages.itemCount == 0 ->
-                            item { LoadingRow() }
+                            items(8) { ShimmerInboxRow() }
 
                         refresh is LoadState.Error && messages.itemCount == 0 -> item {
                             EmptyState(
@@ -374,71 +381,78 @@ private fun MessageRow(message: EmailMessage, accountColor: Color?, onClick: () 
     // web: `!isRead && "bg-blue-50/50 dark:bg-slate-800/20"`
     val rowBg = if (unread) blue.copy(alpha = 0.05f) else Color.Transparent
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(rowBg)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Box {
+            SenderAvatar(from = message.from, size = 44.dp)
             if (unread) {
-                // web: `w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]`
+                // Unread badge pinned to the avatar: the text column never
+                // shifts when read state changes, unlike an in-flow dot.
                 Box(
                     modifier = Modifier
-                        .size(16.dp)
-                        .background(blue.copy(alpha = 0.25f), CircleShape)
-                        .padding(4.dp)
-                        .background(blue, CircleShape),
+                        .align(Alignment.BottomEnd)
+                        .size(12.dp)
+                        .background(blue, CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = MailFormat.displayName(message.from),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium,
+                    color = if (unread) ink else muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
+                Text(
+                    text = MailFormat.listDate(message.date),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
+                    color = if (unread) blue else muted,
+                )
             }
-            Text(
-                text = MailFormat.displayName(message.from),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium,
-                color = if (unread) ink else muted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = MailFormat.listDate(message.date),
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
-                color = if (unread) blue else muted,
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
-            Text(
-                text = message.subject.ifBlank { "(no subject)" },
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (unread) ink else muted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            if (message.hasAttachments) {
-                Spacer(Modifier.width(8.dp))
-                Icon(Icons.Outlined.Attachment, contentDescription = "Has attachments", tint = muted, modifier = Modifier.size(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
+                Text(
+                    text = message.subject.ifBlank { "(no subject)" },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (unread) ink else muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (message.hasAttachments) {
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Outlined.Attachment, contentDescription = "Has attachments", tint = muted, modifier = Modifier.size(12.dp))
+                }
+                if (accountColor != null) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(modifier = Modifier.size(6.dp).background(accountColor, CircleShape))
+                }
             }
-            if (accountColor != null) {
-                Spacer(Modifier.width(8.dp))
-                Box(modifier = Modifier.size(6.dp).background(accountColor, CircleShape))
+            if (message.snippet.isNotBlank()) {
+                Text(
+                    text = message.snippet,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = muted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.padding(top = 3.dp),
+                )
             }
-        }
-        if (message.snippet.isNotBlank()) {
-            Text(
-                text = message.snippet,
-                style = MaterialTheme.typography.bodySmall,
-                color = muted,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = 18.sp,
-                modifier = Modifier.padding(top = 3.dp),
-            )
         }
     }
 }

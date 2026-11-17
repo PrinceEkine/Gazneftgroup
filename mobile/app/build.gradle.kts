@@ -32,6 +32,29 @@ val googleWebClientId: String = run {
         ?.get("client_id") as? String ?: ""
 }
 
+/**
+ * Single-Firebase-project rule: Android, web and the admin API must share ONE
+ * Firebase project AND one Firestore database. The web app uses a NAMED
+ * database (see firebase-applet-config.json `firestoreDatabaseId`), not
+ * "(default)" — this default must stay in lockstep with it. Override with
+ * -PFIRESTORE_DATABASE_ID=... (or env) when the project moves.
+ */
+val firestoreDatabaseId: String = (
+    (project.findProperty("FIRESTORE_DATABASE_ID") as String?)
+        ?: System.getenv("FIRESTORE_DATABASE_ID")
+    )?.takeIf { it.isNotBlank() } ?: "ai-studio-8d1e68ad-6f15-40e6-9245-d509752bfc2d"
+
+/** Firebase project id from google-services.json; blank when the file is missing. */
+val firebaseProjectId: String = run {
+    val json = file("google-services.json")
+    if (!json.exists()) return@run ""
+    @Suppress("UNCHECKED_CAST")
+    val root = groovy.json.JsonSlurper().parseText(json.readText()) as Map<String, Any?>
+    @Suppress("UNCHECKED_CAST")
+    val info = root["project_info"] as? Map<String, Any?>
+    info?.get("project_id") as? String ?: ""
+}
+
 android {
     namespace = "com.gazneftgroup.mail"
     compileSdk = 35
@@ -55,6 +78,8 @@ android {
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        buildConfigField("String", "FIRESTORE_DATABASE_ID", "\"$firestoreDatabaseId\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"$firebaseProjectId\"")
     }
 
     buildTypes {

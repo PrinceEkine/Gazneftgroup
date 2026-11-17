@@ -30,6 +30,15 @@ object MailFormat {
         return trimmed.takeIf { '@' in it }
     }
 
+    /**
+     * Stable palette index for a sender, so avatars keep one colour per
+     * sender across sessions and screens. Case-insensitive; always in range.
+     */
+    fun avatarColorIndex(key: String, paletteSize: Int): Int {
+        if (paletteSize <= 0) return 0
+        return (key.lowercase().hashCode() and Int.MAX_VALUE) % paletteSize
+    }
+
     /** Up to two initials from a display name or address. */
     fun initials(name: String): String {
         val clean = displayName(name)

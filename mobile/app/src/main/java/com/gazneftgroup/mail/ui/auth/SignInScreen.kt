@@ -1,9 +1,12 @@
 package com.gazneftgroup.mail.ui.auth
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,11 +48,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -64,6 +69,7 @@ import com.gazneftgroup.mail.R
 import com.gazneftgroup.mail.ui.components.BrandMark
 import com.gazneftgroup.mail.ui.components.ErrorBanner
 import com.gazneftgroup.mail.ui.theme.BrandColors
+import com.gazneftgroup.mail.ui.theme.GazneftMotion
 import com.gazneftgroup.mail.ui.theme.GazneftTheme
 
 @Composable
@@ -102,6 +108,13 @@ fun SignInContent(
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     var isRegistering by remember { mutableStateOf(false) }
+    var entered by remember { mutableStateOf(false) }
+    val enterProgress by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(GazneftMotion.Medium, easing = GazneftMotion.EmphasizedEasing),
+        label = "authEnter",
+    )
+    LaunchedEffect(Unit) { entered = true }
 
     val canSubmit = !uiState.isLoading && email.isNotBlank() && password.length >= 6
     val submit = {
@@ -116,13 +129,29 @@ fun SignInContent(
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
-        // web: `bg-blue-600/10 blur-[120px] rounded-full` behind the card
-        Box(
-            modifier = Modifier
-                .size(360.dp)
-                .blur(120.dp)
-                .background(BrandColors.Blue.copy(alpha = 0.10f), CircleShape),
-        )
+        // Soft brand glow behind the card (web's blurred blue orb). Drawn as
+        // a radial gradient, not a blur pass: identical look with no blur
+        // cost on low-end GPUs.
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            val glowRadius = with(LocalDensity.current) { maxWidth.toPx() * 0.7f }
+            Box(
+                modifier = Modifier
+                    .size(maxWidth * 0.95f)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                BrandColors.Blue.copy(alpha = 0.16f),
+                                Color.Transparent,
+                            ),
+                            radius = glowRadius,
+                        ),
+                        CircleShape,
+                    ),
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -139,6 +168,10 @@ fun SignInContent(
                     .clip(MaterialTheme.shapes.extraLarge)
                     .background(MaterialTheme.colorScheme.surface)
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.extraLarge)
+                    .graphicsLayer {
+                        alpha = enterProgress
+                        translationY = (1f - enterProgress) * 72f
+                    }
                     .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {

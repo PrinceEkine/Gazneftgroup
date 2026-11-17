@@ -34,9 +34,15 @@ Key decisions (why this scales to ~1M users):
 
 ## Setup
 
-1. In the Firebase console (same project as the web app), add an Android app
-   with package `com.gazneftgroup.mail` and download `google-services.json`
-   into `app/`.
+1. In the Firebase console open the SAME project as the web app (project id
+   in `firebase-applet-config.json`), add an Android app with package
+   `com.gazneftgroup.mail`, and download the real `google-services.json`
+   into `app/` (replacing the committed placeholder). Until you do this,
+   sign-in shows "This build isn't linked to the GNmail database yet" and
+   no accounts sync — the web login and the app login are the same Firebase
+   Auth, but only when both point at the same project. The app automatically
+   opens the web app's named Firestore database (see `FIRESTORE_DATABASE_ID`
+   in `app/build.gradle.kts`); no extra step needed.
 2. Open the `mobile/` folder in Android Studio (Ladybug+), let Gradle sync.
 3. Both debug and release builds call the Netlify proxy
    (`https://gazneftgroup.netlify.app`). To test against a server on your PC

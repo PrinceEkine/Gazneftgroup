@@ -24,7 +24,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,6 +49,8 @@ import com.gazneftgroup.mail.core.common.onError
 import com.gazneftgroup.mail.data.message.MessageRepository
 import com.gazneftgroup.mail.domain.model.EmailMessage
 import com.gazneftgroup.mail.ui.components.ErrorBanner
+import com.gazneftgroup.mail.ui.components.SenderAvatar
+import com.gazneftgroup.mail.ui.components.ShimmerBodyLines
 import com.gazneftgroup.mail.ui.util.MailFormat
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -160,46 +161,53 @@ fun MessageDetailScreen(
                 text = msg.subject.ifBlank { "(no subject)" },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 10.dp),
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 14.dp),
             )
 
-            Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = MailFormat.displayName(msg.from),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = MailFormat.fullDate(msg.date),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                MailFormat.address(msg.from)?.let { address ->
-                    Text(
-                        text = address,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (msg.to.isNotBlank()) {
-                    Row(modifier = Modifier.padding(top = 2.dp)) {
-                        Text("to ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SenderAvatar(from = msg.from, size = 44.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = msg.to,
+                            text = MailFormat.displayName(msg.from),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = MailFormat.fullDate(msg.date),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    MailFormat.address(msg.from)?.let { address ->
+                        Text(
+                            text = address,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                    }
+                    if (msg.to.isNotBlank()) {
+                        Row(modifier = Modifier.padding(top = 2.dp)) {
+                            Text("to ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = msg.to,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             }
@@ -210,13 +218,8 @@ fun MessageDetailScreen(
             }
 
             if (msg.body.isEmpty() && error == null) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Text(
-                    text = "Loading message…",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(20.dp),
-                )
+                Spacer(Modifier.height(20.dp))
+                ShimmerBodyLines()
             } else if (msg.body.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 EmailBody(html = msg.body)

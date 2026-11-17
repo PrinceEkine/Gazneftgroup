@@ -3,7 +3,9 @@ package com.gazneftgroup.mail.di
 import com.gazneftgroup.mail.BuildConfig
 import com.gazneftgroup.mail.core.network.FirebaseAuthInterceptor
 import com.gazneftgroup.mail.core.network.MailApi
+import com.gazneftgroup.mail.BuildConfig
 import com.gazneftgroup.mail.core.network.RetryInterceptor
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestoreSettings
@@ -29,8 +31,11 @@ object NetworkModule {
     fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
 
     @Provides @Singleton
-    fun provideFirestore(): FirebaseFirestore =
-        FirebaseFirestore.getInstance().apply {
+    fun provideFirebaseApp(): FirebaseApp = FirebaseApp.getInstance()
+
+    @Provides @Singleton
+    fun provideFirestore(app: FirebaseApp): FirebaseFirestore =
+        FirebaseFirestore.getInstance(app, BuildConfig.FIRESTORE_DATABASE_ID).apply {
             // Local persistent cache: repeat reads are served from disk, which
             // both survives offline stretches and cuts billed reads at scale.
             firestoreSettings = firestoreSettings {

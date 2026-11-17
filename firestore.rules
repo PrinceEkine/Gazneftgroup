@@ -32,7 +32,7 @@ service cloud.firestore {
              data.ownerUid == request.auth.uid &&
              data.email is string &&
              data.email.size() < 256 &&
-             data.provider in ['gmail', 'outlook', 'custom'] &&
+             data.provider in ['gmail', 'outlook', 'gnmail', 'custom'] &&
              (!('authType' in data) || data.authType in ['password', 'oauth2']) &&
              (!('accessToken' in data) || data.accessToken is string) &&
              (!('refreshToken' in data) || data.refreshToken is string) &&

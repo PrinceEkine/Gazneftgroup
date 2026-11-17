@@ -1,7 +1,7 @@
 export interface EmailAccount {
   id: string;
   email: string;
-  provider: 'gmail' | 'outlook' | 'custom';
+  provider: 'gmail' | 'outlook' | 'gnmail' | 'custom';
   imapHost: string;
   imapPort: number;
   smtpHost: string;

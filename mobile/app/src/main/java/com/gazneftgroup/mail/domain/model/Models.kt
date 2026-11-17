@@ -24,7 +24,7 @@ data class EmailAccount(
     val id: String,
     val ownerUid: String,
     val email: String,
-    val provider: String,          // gmail | outlook | custom
+    val provider: String,          // gmail | outlook | gnmail | custom
     val imapHost: String,
     val imapPort: Int,
     val smtpHost: String,

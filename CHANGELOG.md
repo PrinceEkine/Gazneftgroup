@@ -3,6 +3,30 @@
 One entry per shipped change a teammate would need to know about. Newest first.
 Group by surface: **web**, **android**, **admin**, **infra**, **docs**.
 
+## 2026-11-10
+
+- **android**: Firestore now opens the web app's named database
+  (`FIRESTORE_DATABASE_ID`, default matches `firebase-applet-config.json`) so
+  the app sees the same accounts as the web login. A build still carrying the
+  placeholder `google-services.json` now shows a setup message on sign-in
+  instead of a cryptic auth error (`FirebaseSetup.isPlaceholderProject`, unit
+  tested). `EmailAccount.provider` recognises `gnmail`.
+- **admin**: Admin API opens the web app's named Firestore database
+  (`FIRESTORE_DATABASE_ID`); it previously read the empty default database,
+  so user detail, usage counts and the audit log never matched web data.
+- **web**: `EmailAccount.provider` now includes `gnmail`, and Firestore rules
+  accept `gnmail` accounts (provisioned mailboxes are first-class).
+- **android**: Premium UI pass — shared motion language (`GazneftMotion`) with
+  push/fade screen transitions, sender avatars with stable palette colours,
+  shimmer skeletons for inbox/body loading, animated list reordering, unread
+  badge moved onto the avatar (text no longer shifts on read), animated
+  sign-in entrance, send-button state crossfade, and the sign-in glow redrawn
+  as a GPU-cheap radial gradient instead of a 120dp blur.
+- **web**: Draft-sharing UI wired to the existing E2E crypto — PIN-protected
+  share popover in compose (8-char code, copy, revoke) and shared-draft
+  import in the drafts folder (code + PIN, opens in compose). Text only,
+  7-day TTL, GNmail users only.
+
 ## 2026-10-08
 
 - **android**: Google sign-in / sign-up button on the auth screen (Credential

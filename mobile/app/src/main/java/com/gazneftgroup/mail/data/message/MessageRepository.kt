@@ -9,6 +9,7 @@ import com.gazneftgroup.mail.core.common.AppError
 import com.gazneftgroup.mail.core.common.AppResult
 import com.gazneftgroup.mail.core.common.IoDispatcher
 import com.gazneftgroup.mail.core.db.AppDatabase
+import com.gazneftgroup.mail.core.db.OutboxEntity
 import com.gazneftgroup.mail.core.db.toDomain
 import com.gazneftgroup.mail.core.network.FetchMessageBodyRequest
 import com.gazneftgroup.mail.core.network.MailApi
@@ -19,6 +20,7 @@ import com.gazneftgroup.mail.data.account.AccountRepository
 import com.gazneftgroup.mail.domain.model.EmailMessage
 import com.gazneftgroup.mail.domain.model.MailFolder
 import com.gazneftgroup.mail.domain.model.OutgoingEmail
+import com.gazneftgroup.mail.domain.model.QueuedEmail
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -137,6 +139,91 @@ class MessageRepository @Inject constructor(
             response.messageId.orEmpty()
         }
     }
+
+    // ---------- Outbox queue (local-only, Gmail-style unsent mail) ----------
+
+    fun observeOutbox(accountId: String): Flow<List<QueuedEmail>> =
+        db.outboxDao().observeForAccount(accountId).map { list ->
+            list.map { it.toQueued() }
+        }
+
+    fun observeOutboxCount(accountId: String): Flow<Int> =
+        db.outboxDao().observeCount(accountId)
+
+    suspend fun enqueue(email: OutgoingEmail, error: String?): Long =
+        withContext(ioDispatcher) {
+            db.outboxDao().insert(
+                OutboxEntity(
+                    accountId = email.accountId,
+                    to = email.to,
+                    subject = email.subject,
+                    body = email.body,
+                    createdAt = System.currentTimeMillis(),
+                    lastError = error,
+                    attempts = 0,
+                )
+            )
+        }
+
+    suspend fun deleteQueued(id: Long): Unit = withContext(ioDispatcher) {
+        db.outboxDao().delete(id)
+    }
+
+    /** Sends one queued message; dequeues on success, records the error otherwise. */
+    suspend fun retryQueued(id: Long): AppResult<String> = withContext(ioDispatcher) {
+        val entry = db.outboxDao().all().firstOrNull { it.id == id }
+            ?: return@withContext AppResult.Error(AppError.UNKNOWN)
+        val result = send(
+            OutgoingEmail(
+                accountId = entry.accountId,
+                to = entry.to,
+                subject = entry.subject,
+                body = entry.body,
+            )
+        )
+        when (result) {
+            is AppResult.Success -> db.outboxDao().delete(id)
+            is AppResult.Error -> db.outboxDao().recordFailure(id, result.error.userMessage)
+        }
+        result
+    }
+
+    /**
+     * Sends everything queued (called by the periodic sync worker).
+     * @return number of messages that still failed.
+     */
+    suspend fun flushOutbox(): Int = withContext(ioDispatcher) {
+        var failures = 0
+        for (entry in db.outboxDao().all()) {
+            val result = send(
+                OutgoingEmail(
+                    accountId = entry.accountId,
+                    to = entry.to,
+                    subject = entry.subject,
+                    body = entry.body,
+                )
+            )
+            when (result) {
+                is AppResult.Success -> db.outboxDao().delete(entry.id)
+                is AppResult.Error -> {
+                    db.outboxDao().recordFailure(entry.id, result.error.userMessage)
+                    failures += 1
+                }
+            }
+        }
+        failures
+    }
+
+    private fun OutboxEntity.toQueued() = QueuedEmail(
+        id = id,
+        accountId = accountId,
+        to = to,
+        subject = subject,
+        body = body,
+        createdAt = createdAt,
+        lastError = lastError,
+        attempts = attempts,
+    )
 
     private inline fun <T> runApi(block: () -> T): AppResult<T> =
         try {

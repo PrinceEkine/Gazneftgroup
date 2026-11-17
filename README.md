@@ -27,6 +27,9 @@ Standing product rules (do not regress these):
    and Android (`core/crypto/DraftCrypto.kt`).
 3. Provider `gnmail` accounts are first-class next to `gmail`, `outlook`, `custom`.
 4. User-facing name is **GNmail**. The company name is Gazneftgroup.
+5. Failed sends are never lost and never blind-retried: a send that cannot
+   reach the server queues visibly in the Outbox (Room on Android, a
+   `queued` Firestore draft on web) with explicit retry.
 
 ## How the pieces fit
 

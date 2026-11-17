@@ -419,6 +419,93 @@ router.post("/fetch-emails", async (req, res) => {
     }
   });
 
+// API: List Mail Folders (IMAP LIST Proxy)
+// Powers the Gmail-style folder navigation on web and Android: clients
+// classify special-use mailboxes into the standard folders (inbox, sent,
+// drafts, trash, spam) and show everything else under "More".
+router.post("/list-folders", async (req, res) => {
+  const { imapConfig, authType, accessToken, refreshToken } = req.body;
+  if (!imapConfig) return res.status(400).json({ error: "Missing config" });
+
+  const imapOptions: any = {
+    host: imapConfig.host,
+    port: imapConfig.port,
+    secure: imapConfig.port === 993,
+    logger: false,
+  };
+
+  if (authType === 'oauth2') {
+    let currentAccessToken = accessToken;
+    const isMicrosoft = imapConfig.host.includes('office365') || imapConfig.host.includes('outlook');
+
+    if (isMicrosoft) {
+      if (refreshToken) {
+        try {
+          const refreshResponse = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token',
+            new URLSearchParams({
+              client_id: MICROSOFT_CLIENT_ID!,
+              client_secret: MICROSOFT_CLIENT_SECRET!,
+              refresh_token: refreshToken,
+              grant_type: 'refresh_token',
+            }).toString(),
+            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+          );
+          currentAccessToken = refreshResponse.data.access_token;
+        } catch (err) {
+          console.error("Failed to refresh Microsoft token for IMAP:", err);
+        }
+      }
+    } else {
+      if (refreshToken) {
+        try {
+          if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+            throw new Error("Missing Google OAuth credentials");
+          }
+          const oauth2Client = getOAuth2Client();
+          oauth2Client.setCredentials({ refresh_token: refreshToken });
+          const { token } = await oauth2Client.getAccessToken();
+          if (token) currentAccessToken = token;
+        } catch (err) {
+          console.error("Failed to refresh token for IMAP:", err);
+        }
+      }
+    }
+
+    imapOptions.auth = {
+      user: imapConfig.user,
+      accessToken: currentAccessToken
+    };
+  } else {
+    imapOptions.auth = {
+      user: imapConfig.user,
+      pass: imapConfig.pass,
+    };
+  }
+
+  const client = new ImapFlow(imapOptions);
+
+  try {
+    await client.connect();
+    const mailboxes = await client.list();
+    await client.logout();
+    // Skip \Noselect containers (e.g. Gmail's "[Gmail]" parent) — they
+    // cannot be opened, so clients must not offer them as folders.
+    const folders = mailboxes
+      .filter((mb) => !mb.flags.has("\\Noselect"))
+      .map((mb) => ({
+        path: mb.path,
+        name: mb.name,
+        delimiter: mb.delimiter,
+        specialUse: mb.specialUse ?? null,
+        flags: [...mb.flags],
+      }));
+    res.json({ success: true, folders });
+  } catch (error: any) {
+    console.error("[IMAP] List folders error:", error);
+    res.status(500).json({ error: `IMAP Error: ${error.message}` });
+  }
+});
+
 // API: Fetch Single Message Body (IMAP Proxy)
 router.post("/fetch-message-body", async (req, res) => {
   const { imapConfig, uid, folder = "INBOX", authType, accessToken, refreshToken } = req.body;

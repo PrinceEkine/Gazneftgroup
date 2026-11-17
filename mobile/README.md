@@ -25,7 +25,10 @@ Key decisions (why this scales to ~1M users):
   HTML body is fetched once per message on open and cached forever.
 - **Client-side throttling.** Folder refreshes are rate-limited (60s min
   interval), retries use exponential backoff with full jitter, and sends are
-  never auto-retried (no duplicate emails).
+  never blind-retried by the HTTP layer (no duplicate emails). The
+  deliberate exception is the Outbox: a send that fails to reach the server
+  is queued visibly in Room and retried from there — explicitly by the user
+  ("Send now") plus automatically by the periodic sync worker.
 - **Push over poll.** FCM notifies devices of new mail; the periodic
   WorkManager sync (30 min, flex-windowed by the OS so devices don't sync in
   waves) is only a fallback.

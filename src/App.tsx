@@ -11,6 +11,9 @@ import {
   Mail,
   Clock,
   ChevronRight,
+  ChevronDown,
+  Folder,
+  SendHorizontal,
   Search,
   RefreshCw,
   User,
@@ -46,6 +49,13 @@ import DeliverabilityGuide from './components/DeliverabilityGuide';
 import LandingPage from './components/LandingPage';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import { Logo } from './components/Logo';
+import {
+  CustomFolderItem,
+  classifyListedFolder,
+  customFolderId,
+  fetchAccountFolders,
+  folderLabel,
+} from './lib/mailFolders';
 
 type AuthMode = 'login' | 'register' | 'forgot';
 
@@ -54,6 +64,12 @@ export default function App() {
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all');
   const [activeFolder, setActiveFolder] = useState<string>('inbox');
+  const [customFolders, setCustomFolders] = useState<CustomFolderItem[]>([]);
+  const [foldersLoading, setFoldersLoading] = useState(false);
+  const [foldersError, setFoldersError] = useState<string | null>(null);
+  const [foldersNonce, setFoldersNonce] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(true);
+  const [queuedCount, setQueuedCount] = useState(0);
   const [isAccountManagerOpen, setIsAccountManagerOpen] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [draftToEdit, setDraftToEdit] = useState<EmailDraft | undefined>(undefined);
@@ -124,6 +140,73 @@ export default function App() {
     });
     return unsubscribe;
   }, []);
+
+  // Load each account's real folder list (IMAP LIST) once accounts arrive.
+  // Standard folders are classified out; the remainder is shown under "More".
+  // A single account failing still shows the folders that did load.
+  useEffect(() => {
+    if (accounts.length === 0) {
+      setCustomFolders([]);
+      setFoldersError(null);
+      return;
+    }
+    let cancelled = false;
+    setFoldersLoading(true);
+    setFoldersError(null);
+    (async () => {
+      const seen = new Map<string, CustomFolderItem>();
+      let failures = 0;
+      await Promise.all(accounts.map(async (acc) => {
+        try {
+          const listed = await fetchAccountFolders(acc);
+          for (const f of listed) {
+            if (classifyListedFolder(acc.provider, f) !== null) continue;
+            if (!seen.has(f.path)) {
+              const id = customFolderId(f.path);
+              seen.set(f.path, {
+                id,
+                path: f.path,
+                label: f.name && f.name.length > 0 ? f.name : folderLabel(id),
+              });
+            }
+          }
+        } catch (err) {
+          failures += 1;
+        }
+      }));
+      if (cancelled) return;
+      setFoldersLoading(false);
+      if (failures === accounts.length) {
+        setFoldersError('Could not load folders from your accounts.');
+        return;
+      }
+      setCustomFolders(
+        [...seen.values()].sort((a, b) => a.label.localeCompare(b.label)),
+      );
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts, foldersNonce]);
+
+  // Outbox badge: queued (failed-send) drafts in the current scope.
+  useEffect(() => {
+    if (!user) {
+      setQueuedCount(0);
+      return;
+    }
+    const q = query(
+      collection(db, 'users', user.uid, 'drafts'),
+      where('status', '==', 'queued'),
+    );
+    return onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map((d) => d.data() as EmailDraft);
+      setQueuedCount(
+        selectedAccountId === 'all'
+          ? docs.length
+          : docs.filter((d) => d.accountId === selectedAccountId).length,
+      );
+    });
+  }, [user, selectedAccountId]);
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
@@ -383,11 +466,52 @@ export default function App() {
             <nav className="flex-1 px-2 space-y-1 overflow-y-auto custom-scrollbar">
               <div className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Mailboxes</div>
               <NavItem icon={<Inbox size={18} />} label="Inbox" active={activeFolder === 'inbox'} onClick={() => setActiveFolder('inbox')} />
-              <NavItem icon={<Clock size={18} />} label="Snoozed" active={activeFolder === 'snoozed'} onClick={() => setActiveFolder('snoozed')} />
+              <NavItem icon={<SendHorizontal size={18} />} label="Outbox" active={activeFolder === 'outbox'} onClick={() => setActiveFolder('outbox')} badge={queuedCount} />
               <NavItem icon={<Send size={18} />} label="Sent" active={activeFolder === 'sent'} onClick={() => setActiveFolder('sent')} />
               <NavItem icon={<FileText size={18} />} label="Drafts" active={activeFolder === 'drafts'} onClick={() => setActiveFolder('drafts')} />
-              <NavItem icon={<Trash2 size={18} />} label="Trash" active={activeFolder === 'trash'} onClick={() => setActiveFolder('trash')} />
-              <NavItem icon={<AlertCircle size={18} />} label="Spam" active={activeFolder === 'spam'} onClick={() => setActiveFolder('spam')} />
+              <NavItem icon={<Clock size={18} />} label="Snoozed" active={activeFolder === 'snoozed'} onClick={() => setActiveFolder('snoozed')} />
+              <button
+                onClick={() => setMoreOpen(!moreOpen)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-900 transition-all"
+              >
+                <span className="text-slate-400 dark:text-slate-500">
+                  <ChevronDown size={18} className={cn('transition-transform', !moreOpen && '-rotate-90')} />
+                </span>
+                {moreOpen ? 'Less' : 'More'}
+              </button>
+              {moreOpen && (
+                <>
+                  <NavItem icon={<Trash2 size={18} />} label="Trash" active={activeFolder === 'trash'} onClick={() => setActiveFolder('trash')} />
+                  <NavItem icon={<AlertCircle size={18} />} label="Spam" active={activeFolder === 'spam'} onClick={() => setActiveFolder('spam')} />
+                  {foldersLoading && customFolders.length === 0 && (
+                    <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-400 dark:text-slate-500">
+                      <Loader2 size={18} className="animate-spin" />
+                      Loading folders…
+                    </div>
+                  )}
+                  {foldersError && (
+                    <div className="px-4 py-2.5 text-sm text-slate-500">
+                      {foldersError}{' '}
+                      <button
+                        onClick={() => setFoldersNonce((n) => n + 1)}
+                        className="text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                  {customFolders.map((f) => (
+                    <NavItem
+                      key={f.id}
+                      icon={<Folder size={18} />}
+                      label={f.label}
+                      title={f.path}
+                      active={activeFolder === f.id}
+                      onClick={() => setActiveFolder(f.id)}
+                    />
+                  ))}
+                </>
+              )}
 
               <div className="mt-8 px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Deliverability</div>
               <NavItem 
@@ -519,21 +643,27 @@ export default function App() {
   );
 }
 
-function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void }) {
+function NavItem({ icon, label, active, onClick, badge, title }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void, badge?: number, title?: string }) {
   return (
-    <button 
+    <button
       onClick={onClick}
+      title={title}
       className={cn(
         "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all group",
-        active 
-          ? "bg-blue-600/10 text-blue-600 dark:text-blue-500" 
+        active
+          ? "bg-blue-600/10 text-blue-600 dark:text-blue-500"
           : "text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200"
       )}
     >
-      <span className={cn("transition-colors", active ? "text-blue-600 dark:text-blue-500" : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300")}>
+      <span className={cn("transition-colors flex-none", active ? "text-blue-600 dark:text-blue-500" : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300")}>
         {icon}
       </span>
-      {label}
+      <span className="flex-1 text-left truncate">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="flex-none text-[10px] font-bold bg-blue-600/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
+          {badge}
+        </span>
+      )}
     </button>
   );
 }

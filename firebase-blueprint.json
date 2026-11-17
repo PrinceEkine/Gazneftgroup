@@ -51,7 +51,7 @@
         "snippet": { "type": "string" },
         "body": { "type": "string" },
         "isRead": { "type": "boolean" },
-        "folder": { "type": "string", "enum": ["inbox", "sent", "drafts", "trash", "spam"] },
+        "folder": { "type": "string", "description": "Standard folder id, or 'imap:' + raw IMAP path for loaded folders." },
         "hasAttachments": { "type": "boolean" }
       },
       "required": ["accountId", "ownerUid", "subject", "from", "date"]
@@ -72,7 +72,7 @@
     },
     "EmailDraft": {
       "title": "Email Draft",
-      "description": "Unsent email drafts saved by the user.",
+      "description": "Unsent email drafts saved by the user. A failed send marks the draft queued so it waits in the Outbox with a retry action.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -84,7 +84,9 @@
         "body": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
-        "type": { "type": "string", "enum": ["draft"] }
+        "type": { "type": "string", "enum": ["draft"] },
+        "status": { "type": "string", "enum": ["draft", "queued"], "description": "Absent means draft. Queued drafts render in the Outbox, not Drafts." },
+        "sendError": { "type": "string", "description": "Why the last send attempt failed (queued drafts only)." }
       },
       "required": ["userId", "accountId"]
     }

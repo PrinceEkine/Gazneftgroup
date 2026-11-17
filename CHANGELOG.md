@@ -3,6 +3,28 @@
 One entry per shipped change a teammate would need to know about. Newest first.
 Group by surface: **web**, **android**, **admin**, **infra**, **docs**.
 
+## 2026-11-17
+
+- **infra**: New proxy endpoint `POST /api/list-folders` (dev server and
+  Netlify function) returning each account's real IMAP folder list with
+  special-use flags; `\Noselect` containers are filtered server-side.
+- **web**: Gmail-style sidebar — Inbox, Outbox, Sent, Drafts, Snoozed on top,
+  Trash/Spam plus the account's loaded folders under "More". One shared
+  folder→IMAP resolver (`src/lib/mailFolders.ts`) replaces three copies.
+- **web**: Outbox for failed sends — compose marks the draft `queued` with
+  the error instead of stranding it; the Outbox lists queued drafts with
+  Send-now retry and badge count.
+- **android**: Gmail-style navigation drawer (Inbox, Outbox, Sent, Drafts,
+  More → Trash, Spam, loaded folders) with unread/queued badges, replacing
+  the folder tabs. `MailFolder` is now a sealed hierarchy with `Custom`
+  paths; classification is unit tested.
+- **android**: Outbox queue in Room (new table, real v1→v2 migration) —
+  offline sends queue visibly, retry from the Outbox or automatically via
+  the sync worker. Non-network failures still surface inline, never queued.
+- **infra**: Fixed a duplicate `BuildConfig` import that broke Android
+  compilation; root `tsc` gate now scopes to web+proxy (admin packages
+  gate themselves).
+
 ## 2026-11-10
 
 - **android**: Firestore now opens the web app's named database

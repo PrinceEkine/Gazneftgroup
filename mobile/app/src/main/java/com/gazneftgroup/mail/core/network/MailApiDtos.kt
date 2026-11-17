@@ -123,3 +123,27 @@ data class SimpleSuccessResponse(
     val success: Boolean = false,
     val error: String? = null,
 )
+
+@Serializable
+data class ListFoldersRequest(
+    val imapConfig: ImapConfigDto,
+    val authType: String? = null,        // "password" | "oauth2"
+    val accessToken: String? = null,
+    val refreshToken: String? = null,
+)
+
+@Serializable
+data class ListedFolderDto(
+    val path: String,
+    val name: String = "",
+    val delimiter: String = "",
+    val specialUse: String? = null,      // RFC 6154, e.g. "\\Sent"
+    val flags: List<String> = emptyList(),
+)
+
+@Serializable
+data class ListFoldersResponse(
+    val success: Boolean = false,
+    val folders: List<ListedFolderDto> = emptyList(),
+    val error: String? = null,
+)

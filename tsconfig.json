@@ -22,5 +22,9 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  // admin/api and admin/web are separate packages with their own tsconfigs
+  // and gates (npm run lint / build); excluding them keeps this gate about
+  // the web app + IMAP/SMTP proxy only.
+  "exclude": ["node_modules", "dist", "admin", "mobile"]
 }

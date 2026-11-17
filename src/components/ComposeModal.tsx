@@ -60,6 +60,8 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
     const saveDraft = async () => {
       setSaveStatus('saving');
       try {
+        // status: 'draft' un-queues a draft opened from the Outbox for
+        // editing — once touched, it is a draft again, not a queued send.
         const draftData = {
           accountId: selectedAccountId,
           to,
@@ -68,7 +70,8 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
           body,
           updatedAt: new Date().toISOString(),
           userId: user.uid,
-          type: 'draft'
+          type: 'draft',
+          status: 'draft'
         };
 
         if (draftId) {
@@ -277,6 +280,36 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
     }
   };
 
+  // A failed send must not strand the message: mark the draft queued
+  // (with the error) so it lands in the Outbox with a retry action.
+  const markDraftQueued = async (sendError: string, toValue: string) => {
+    try {
+      const queuedData = {
+        accountId: selectedAccountId,
+        to: toValue,
+        replyTo,
+        subject,
+        body,
+        updatedAt: new Date().toISOString(),
+        userId: user.uid,
+        type: 'draft',
+        status: 'queued',
+        sendError,
+      };
+      if (draftId) {
+        await setDoc(doc(db, 'users', user.uid, 'drafts', draftId), queuedData, { merge: true });
+      } else {
+        const docRef = await addDoc(collection(db, 'users', user.uid, 'drafts'), {
+          ...queuedData,
+          createdAt: new Date().toISOString(),
+        });
+        setDraftId(docRef.id);
+      }
+    } catch (err) {
+      console.error("Failed to queue draft after send failure:", err);
+    }
+  };
+
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
@@ -369,10 +402,13 @@ export default function ComposeModal({ accounts, onClose, user, initialDraft }: 
         setStatus({ type: 'success', message: `Message sent successfully to ${finalRecipients.length} recipient(s)!` });
         setTimeout(onClose, 2000);
       } else {
-        setStatus({ type: 'error', message: data.error || "Failed to send message" });
+        const errMsg = data.error || "Failed to send message";
+        await markDraftQueued(errMsg, finalRecipients.join(', '));
+        setStatus({ type: 'error', message: `${errMsg} Saved to Outbox — retry from there.` });
       }
     } catch (error: any) {
-      setStatus({ type: 'error', message: error.message });
+      await markDraftQueued(error.message, finalRecipients.join(', '));
+      setStatus({ type: 'error', message: `${error.message} Saved to Outbox — retry from there.` });
     } finally {
       setIsSending(false);
     }

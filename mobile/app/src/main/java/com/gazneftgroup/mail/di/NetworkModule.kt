@@ -3,7 +3,6 @@ package com.gazneftgroup.mail.di
 import com.gazneftgroup.mail.BuildConfig
 import com.gazneftgroup.mail.core.network.FirebaseAuthInterceptor
 import com.gazneftgroup.mail.core.network.MailApi
-import com.gazneftgroup.mail.BuildConfig
 import com.gazneftgroup.mail.core.network.RetryInterceptor
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth

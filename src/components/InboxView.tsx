@@ -5,9 +5,10 @@ import { format } from 'date-fns';
 import { EmailAccount, EmailMessage, EmailDraft } from '../types';
 import { cn } from '../lib/utils';
 import { summarizeEmail, detectPriority, generateSmartReplies } from '../services/geminiService';
-import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { ImportDraftModal } from './DraftShareDialog';
+import { folderLabel, resolveImapFolder } from '../lib/mailFolders';
 
 interface Props {
   accountId: string | 'all';
@@ -20,6 +21,8 @@ interface Props {
 export default function InboxView({ accountId, folder, searchQuery, accounts, onOpenDraft }: Props) {
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [firestoreDrafts, setFirestoreDrafts] = useState<EmailDraft[]>([]);
+  const [queuedDrafts, setQueuedDrafts] = useState<EmailDraft[]>([]);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<EmailMessage | null>(null);
@@ -39,10 +42,11 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
     fetchMessages(20);
   }, [accountId, folder]);
 
-  // Fetch Firestore drafts
+  // Fetch Firestore drafts (drafts folder) and queued sends (outbox).
   useEffect(() => {
-    if (!auth.currentUser || folder !== 'drafts') {
+    if (!auth.currentUser || (folder !== 'drafts' && folder !== 'outbox')) {
       setFirestoreDrafts([]);
+      setQueuedDrafts([]);
       return;
     }
 
@@ -53,7 +57,8 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const drafts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmailDraft));
-      setFirestoreDrafts(drafts);
+      setFirestoreDrafts(drafts.filter((d) => d.status !== 'queued'));
+      setQueuedDrafts(drafts.filter((d) => d.status === 'queued'));
     });
 
     return unsubscribe;
@@ -81,19 +86,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
     const acc = accounts.find(a => a.id === msg.accountId);
     if (!acc) return;
 
-    // Map folder names to common IMAP paths (same logic as fetchMessages)
-    let imapFolder = folder.toUpperCase();
-    if (acc.provider === 'gmail') {
-      if (folder === 'sent') imapFolder = '[Gmail]/Sent Mail';
-      else if (folder === 'drafts') imapFolder = '[Gmail]/Drafts';
-      else if (folder === 'trash') imapFolder = '[Gmail]/Trash';
-      else if (folder === 'spam') imapFolder = '[Gmail]/Spam';
-    } else if (acc.provider === 'outlook') {
-      if (folder === 'sent') imapFolder = 'Sent';
-      else if (folder === 'drafts') imapFolder = 'Drafts';
-      else if (folder === 'trash') imapFolder = 'Deleted';
-      else if (folder === 'spam') imapFolder = 'Junk';
-    }
+    const imapFolder = resolveImapFolder(acc.provider, folder);
 
     try {
       const response = await fetch('/api/fetch-message-body', {
@@ -175,7 +168,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
           uid: msg.id, // In our types, id is msg.uid
           flags: ["\\Seen"],
           action: newReadStatus ? 'add' : 'remove',
-          folder: folder.toUpperCase(),
+          folder: resolveImapFolder(acc.provider, folder),
           authType: acc.authType,
           accessToken: acc.accessToken,
           refreshToken: acc.refreshToken
@@ -262,6 +255,14 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
   };
 
   const fetchMessages = async (currentLimit = limit) => {
+    // Outbox is local-only (queued Firestore drafts rendered below) — there
+    // is no IMAP folder to fetch.
+    if (folder === 'outbox') {
+      setMessages([]);
+      setLoading(false);
+      setIsFetchingMore(false);
+      return;
+    }
     if (folder === 'snoozed') {
       if (messages.length > 0 && currentLimit === 20) {
         setLoading(false);
@@ -284,22 +285,8 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
       }
 
       const fetchFromAccount = async (acc: any) => {
-        // Map folder names to common IMAP paths
-        let imapFolder = folder.toUpperCase();
-        if (acc.provider === 'gmail') {
-          if (folder === 'sent') imapFolder = '[Gmail]/Sent Mail';
-          else if (folder === 'drafts') imapFolder = '[Gmail]/Drafts';
-          else if (folder === 'trash') imapFolder = '[Gmail]/Trash';
-          else if (folder === 'spam') imapFolder = '[Gmail]/Spam';
-        } else if (acc.provider === 'outlook') {
-          if (folder === 'sent') imapFolder = 'Sent';
-          else if (folder === 'drafts') imapFolder = 'Drafts';
-          else if (folder === 'trash') imapFolder = 'Deleted';
-          else if (folder === 'spam') imapFolder = 'Junk';
-        }
-
-        // If snoozed, we actually want to fetch INBOX and then filter locally
-        if (folder === 'snoozed') imapFolder = 'INBOX';
+        // Snoozed resolves to INBOX and is filtered locally below.
+        const imapFolder = resolveImapFolder(acc.provider, folder);
 
         try {
           const response = await fetch('/api/fetch-emails', {
@@ -379,19 +366,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
               if (!body) {
                 const acc = accounts.find(a => a.id === msg.accountId);
                 if (acc) {
-                  // Map folder names to common IMAP paths
-                  let imapFolder = folder.toUpperCase();
-                  if (acc.provider === 'gmail') {
-                    if (folder === 'sent') imapFolder = '[Gmail]/Sent Mail';
-                    else if (folder === 'drafts') imapFolder = '[Gmail]/Drafts';
-                    else if (folder === 'trash') imapFolder = '[Gmail]/Trash';
-                    else if (folder === 'spam') imapFolder = '[Gmail]/Spam';
-                  } else if (acc.provider === 'outlook') {
-                    if (folder === 'sent') imapFolder = 'Sent';
-                    else if (folder === 'drafts') imapFolder = 'Drafts';
-                    else if (folder === 'trash') imapFolder = 'Deleted';
-                    else if (folder === 'spam') imapFolder = 'Junk';
-                  }
+                  const imapFolder = resolveImapFolder(acc.provider, folder);
 
                   const resp = await fetch('/api/fetch-message-body', {
                     method: 'POST',
@@ -440,6 +415,60 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
     fetchMessages(newLimit);
   };
 
+  // Re-send a queued outbox draft. Attachments are not persisted on drafts,
+  // so a retry sends the recipients/subject/body only.
+  const handleRetryQueued = async (draft: EmailDraft) => {
+    if (!auth.currentUser || retryingId) return;
+    const acc = accounts.find((a) => a.id === draft.accountId);
+    if (!acc) return;
+    setRetryingId(draft.id);
+    const draftRef = doc(db, 'users', auth.currentUser.uid, 'drafts', draft.id);
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          smtpConfig: {
+            host: acc.smtpHost,
+            port: acc.smtpPort,
+            user: acc.email,
+            pass: acc.password,
+          },
+          authType: acc.authType,
+          accessToken: acc.accessToken,
+          refreshToken: acc.refreshToken,
+          mailOptions: {
+            from: `"${acc.label}" <${acc.email}>`,
+            to: draft.to,
+            replyTo: draft.replyTo || undefined,
+            subject: draft.subject,
+            html: draft.body,
+          },
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        await deleteDoc(draftRef);
+      } else {
+        await updateDoc(draftRef, {
+          sendError: data.error || 'Failed to send message',
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch (err: any) {
+      try {
+        await updateDoc(draftRef, {
+          sendError: err.message || 'Failed to send message',
+          updatedAt: new Date().toISOString(),
+        });
+      } catch {
+        // Draft was deleted mid-retry; nothing left to update.
+      }
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
   const filteredMessages = messages.filter(m => {
     const matchesSearch = m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          m.from.toLowerCase().includes(searchQuery.toLowerCase());
@@ -473,6 +502,20 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
       folder: 'drafts' as const,
       isFirestoreDraft: true,
       draftData: d
+    })) : []),
+    ...(folder === 'outbox' ? queuedDrafts.map(d => ({
+      id: d.id,
+      accountId: d.accountId,
+      subject: d.subject || '(No Subject)',
+      from: d.to ? `To: ${d.to}` : 'Queued message',
+      to: d.to,
+      date: d.updatedAt,
+      snippet: d.sendError || 'Waiting to send…',
+      body: d.body,
+      isRead: true,
+      folder: 'outbox' as const,
+      isQueuedDraft: true,
+      draftData: d
     })) : [])
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -485,7 +528,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
       )}>
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="font-bold text-lg capitalize text-slate-900 dark:text-white">{folder}</h2>
+            <h2 className="font-bold text-lg capitalize text-slate-900 dark:text-white">{folderLabel(folder)}</h2>
             <button 
               onClick={() => {
                 const unread = allDisplayMessages.filter(m => !m.isRead);
@@ -537,7 +580,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
               <Inbox size={48} className="opacity-20" />
               <div>
                 <p className="font-medium text-slate-300">No messages found</p>
-                <p className="text-sm">Your {folder} is empty.</p>
+                <p className="text-sm">Your {folderLabel(folder)} is empty.</p>
               </div>
             </div>
           ) : (
@@ -546,7 +589,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
                 <div 
                   key={msg.id}
                   onClick={() => {
-                    if (msg.isFirestoreDraft && onOpenDraft) {
+                    if ((msg.isFirestoreDraft || msg.isQueuedDraft) && onOpenDraft) {
                       onOpenDraft(msg.draftData);
                     } else {
                       setSelectedMessage(msg);
@@ -557,7 +600,7 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      if (msg.isFirestoreDraft && onOpenDraft) {
+                      if ((msg.isFirestoreDraft || msg.isQueuedDraft) && onOpenDraft) {
                         onOpenDraft(msg.draftData);
                       } else {
                         setSelectedMessage(msg);
@@ -579,6 +622,9 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
                       {msg.isFirestoreDraft && (
                         <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-black uppercase tracking-widest">Local Draft</span>
                       )}
+                      {msg.isQueuedDraft && (
+                        <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-black uppercase tracking-widest">Queued</span>
+                      )}
                     </div>
                     <span className={cn("text-[10px] whitespace-nowrap ml-2 transition-colors", !msg.isRead ? "text-blue-600 dark:text-blue-400 font-bold" : "text-slate-500")}>
                       {format(new Date(msg.date), 'MMM d')}
@@ -589,26 +635,43 @@ export default function InboxView({ accountId, folder, searchQuery, accounts, on
                       {msg.subject}
                     </p>
                     <div className="flex items-center gap-1 flex-none">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleReadStatus(msg);
-                        }}
-                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
-                        title={msg.isRead ? "Mark as unread" : "Mark as read"}
-                      >
-                        {msg.isRead ? <Mail size={14} /> : <MailOpen size={14} />}
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowSnoozeModal(msg.id);
-                        }}
-                        className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-yellow-600 dark:hover:text-yellow-400 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
-                        title="Snooze"
-                      >
-                        <Clock size={14} />
-                      </button>
+                      {msg.isQueuedDraft && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRetryQueued(msg.draftData);
+                          }}
+                          disabled={retryingId === msg.id}
+                          className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-all disabled:opacity-50"
+                          title="Send now"
+                        >
+                          {retryingId === msg.id ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+                        </button>
+                      )}
+                      {!msg.isQueuedDraft && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleReadStatus(msg);
+                            }}
+                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
+                            title={msg.isRead ? "Mark as unread" : "Mark as read"}
+                          >
+                            {msg.isRead ? <Mail size={14} /> : <MailOpen size={14} />}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowSnoozeModal(msg.id);
+                            }}
+                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-yellow-600 dark:hover:text-yellow-400 lg:opacity-0 lg:group-hover:opacity-100 transition-all"
+                            title="Snooze"
+                          >
+                            <Clock size={14} />
+                          </button>
+                        </>
+                      )}
                       {msg.priority === 'urgent' && <AlertCircle size={12} className="text-red-500" />}
                       {msg.priority === 'low' && <ArrowDown size={12} className="text-slate-500" />}
                       {msg.attachments && msg.attachments.length > 0 && <Paperclip size={12} className="text-slate-500" />}

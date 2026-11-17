@@ -5,9 +5,11 @@ import app.cash.turbine.test
 import com.gazneftgroup.mail.core.common.AppError
 import com.gazneftgroup.mail.core.common.AppResult
 import com.gazneftgroup.mail.data.message.MessageRepository
+import com.gazneftgroup.mail.domain.model.OutgoingEmail
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -17,6 +19,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -62,19 +65,50 @@ class ComposeEmailViewModelTest {
     }
 
     @Test
-    fun `send failure surfaces user-presentable error and allows retry`() = runTest(dispatcher) {
+    fun `offline send failure queues the message to the outbox`() = runTest(dispatcher) {
         coEvery { repository.send(any()) } returns AppResult.Error(AppError.NETWORK)
+        coEvery { repository.enqueue(any(), AppError.NETWORK.userMessage) } returns 1L
+        val vm = viewModel()
+        vm.onToChanged("someone@example.com")
+        vm.onBodyChanged("hello")
+
+        vm.send()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val emailSlot = slot<OutgoingEmail>()
+        coVerify(exactly = 1) {
+            repository.enqueue(capture(emailSlot), AppError.NETWORK.userMessage)
+        }
+        assertEquals("acct-1", emailSlot.captured.accountId)
+        assertEquals("someone@example.com", emailSlot.captured.to)
+        assertEquals("hello", emailSlot.captured.body)
+        vm.uiState.test {
+            val state = awaitItem()
+            assertTrue(state.queued)
+            assertFalse(state.sent)
+            assertFalse(state.isSending)
+            assertNull(state.error)
+        }
+    }
+
+    @Test
+    fun `non-network send failure surfaces error without queueing`() = runTest(dispatcher) {
+        coEvery { repository.send(any()) } returns AppResult.Error(AppError.AUTH_EXPIRED)
         val vm = viewModel()
         vm.onToChanged("someone@example.com")
 
         vm.send()
         dispatcher.scheduler.advanceUntilIdle()
 
+        // Doomed sends (auth, validation, server) stay on screen for
+        // explicit retry — queueing those could duplicate or loop forever.
+        coVerify(exactly = 0) { repository.enqueue(any(), any()) }
         vm.uiState.test {
             val state = awaitItem()
-            assertEquals(AppError.NETWORK.userMessage, state.error)
+            assertEquals(AppError.AUTH_EXPIRED.userMessage, state.error)
             assertFalse(state.sent)
-            assertTrue(state.canSend) // user can retry explicitly — sends are never auto-retried
+            assertFalse(state.queued)
+            assertTrue(state.canSend)
         }
     }
 

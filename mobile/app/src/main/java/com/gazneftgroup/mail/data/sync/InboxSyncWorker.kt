@@ -16,6 +16,7 @@ import com.gazneftgroup.mail.core.db.SyncStateEntity
 import com.gazneftgroup.mail.core.network.FetchEmailsRequest
 import com.gazneftgroup.mail.core.network.MailApi
 import com.gazneftgroup.mail.data.account.AccountRepository
+import com.gazneftgroup.mail.data.message.MessageRepository
 import com.google.firebase.auth.FirebaseAuth
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -39,16 +40,21 @@ class InboxSyncWorker @AssistedInject constructor(
     private val api: MailApi,
     private val db: AppDatabase,
     private val accountRepository: AccountRepository,
+    private val messageRepository: MessageRepository,
     private val auth: FirebaseAuth,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         if (auth.currentUser == null) return Result.success()
 
+        // Best-effort first: flush queued outbox mail so offline sends go
+        // out on their own. Failures stay queued with their error recorded.
+        val outboxFailures = runCatching { messageRepository.flushOutbox() }.getOrDefault(0)
+
         val accounts = runCatching { accountRepository.observeAccounts().first() }
             .getOrElse { return Result.retry() }
 
-        var anyFailure = false
+        var anyFailure = outboxFailures > 0
         for (account in accounts) {
             try {
                 val credentials = accountRepository.getCredentials(account.id) ?: continue

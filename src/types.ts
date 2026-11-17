@@ -25,7 +25,8 @@ export interface EmailMessage {
   snippet: string;
   body: string;
   isRead: boolean;
-  folder: 'inbox' | 'sent' | 'drafts' | 'trash' | 'spam';
+  // Standard ids ('inbox', 'sent', …) or a custom id ('imap:' + IMAP path).
+  folder: string;
   snoozedUntil?: string;
   priority?: 'urgent' | 'normal' | 'low';
   smartReplies?: string[];
@@ -66,4 +67,8 @@ export interface EmailDraft {
   createdAt: string;
   updatedAt: string;
   type: 'draft';
+  // A failed send marks the draft 'queued' (shown in Outbox) instead of
+  // leaving the message unsent with nowhere to retry it from.
+  status?: 'draft' | 'queued';
+  sendError?: string;
 }

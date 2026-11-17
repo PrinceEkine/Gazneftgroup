@@ -16,4 +16,7 @@ interface MailApi {
 
     @POST("api/send-email")
     suspend fun sendEmail(@Body request: SendEmailRequest): SendEmailResponse
+
+    @POST("api/list-folders")
+    suspend fun listFolders(@Body request: ListFoldersRequest): ListFoldersResponse
 }

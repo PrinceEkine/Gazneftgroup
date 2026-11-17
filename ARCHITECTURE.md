@@ -43,7 +43,11 @@ operate, and the entire client design exists to keep traffic off it:
    a million devices over time) is a fallback, not the mechanism.
 4. **Client-side throttling.** Folder refreshes are rate-limited (60s),
    retries use exponential backoff with full jitter (no thundering herd),
-   and sends are never auto-retried (no duplicate emails).
+   and sends are never blind-retried by the HTTP layer (no duplicate
+   emails). The deliberate exception is the Outbox: a send that fails to
+   reach the server is queued visibly (Room on Android, a `queued` Firestore
+   draft on web) and retried from there — explicitly by the user, plus the
+   periodic sync worker on Android.
 5. **Cursor pagination everywhere.** Paging 3 + RemoteMediator on mobile;
    Firebase Auth pageToken cursors in the admin API. Nothing does offset
    scans or unbounded reads.

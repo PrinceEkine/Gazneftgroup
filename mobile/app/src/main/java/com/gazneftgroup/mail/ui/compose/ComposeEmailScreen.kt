@@ -50,6 +50,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gazneftgroup.mail.core.common.AppError
 import com.gazneftgroup.mail.core.common.AppResult
 import com.gazneftgroup.mail.data.message.MessageRepository
 import com.gazneftgroup.mail.domain.model.OutgoingEmail
@@ -70,6 +71,7 @@ data class ComposeUiState(
     val body: String = "",
     val isSending: Boolean = false,
     val sent: Boolean = false,
+    val queued: Boolean = false,
     val error: String? = null,
 ) {
     val canSend: Boolean get() = to.isNotBlank() && !isSending
@@ -102,19 +104,28 @@ class ComposeEmailViewModel @Inject constructor(
         if (!state.canSend) return
         _uiState.update { it.copy(isSending = true, error = null) }
         viewModelScope.launch {
-            val result = messageRepository.send(
-                OutgoingEmail(
-                    accountId = accountId,
-                    to = state.to.trim(),
-                    subject = state.subject,
-                    // Plain text composed on mobile; preserve line breaks as HTML.
-                    body = state.body.replace("\n", "<br>"),
-                )
+            val email = OutgoingEmail(
+                accountId = accountId,
+                to = state.to.trim(),
+                subject = state.subject,
+                // Plain text composed on mobile; preserve line breaks as HTML.
+                body = state.body.replace("\n", "<br>"),
             )
-            _uiState.update {
-                when (result) {
-                    is AppResult.Success -> it.copy(isSending = false, sent = true)
-                    is AppResult.Error -> it.copy(isSending = false, error = result.error.userMessage)
+            when (val result = messageRepository.send(email)) {
+                is AppResult.Success -> _uiState.update { it.copy(isSending = false, sent = true) }
+                is AppResult.Error -> {
+                    // Transport failure (offline / unreachable proxy): queue the
+                    // message so it waits in the Outbox instead of being lost.
+                    // Auth, validation and server errors stay on screen —
+                    // queuing those could duplicate or loop a doomed send.
+                    if (result.error == AppError.NETWORK || result.error == AppError.OFFLINE) {
+                        messageRepository.enqueue(email, result.error.userMessage)
+                        _uiState.update { it.copy(isSending = false, queued = true) }
+                    } else {
+                        _uiState.update {
+                            it.copy(isSending = false, error = result.error.userMessage)
+                        }
+                    }
                 }
             }
         }
@@ -149,6 +160,17 @@ fun ComposeEmailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmDiscard = false }) { Text("Keep editing") }
+            },
+        )
+    }
+
+    if (uiState.queued) {
+        AlertDialog(
+            onDismissRequest = onDone,
+            title = { Text("Saved to Outbox") },
+            text = { Text("No connection — this message will send automatically when you're back online.") },
+            confirmButton = {
+                TextButton(onClick = onDone) { Text("Done") }
             },
         )
     }

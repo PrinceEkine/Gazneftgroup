@@ -1,0 +1,17 @@
+{
+  // TEMPORARY one-shot config: strip types from the admin API. Deleted after the emit.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": ".js-emit-api",
+    "rootDir": ".",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "sourceMap": false,
+    "noEmitOnError": false
+  },
+  "include": ["src", "scripts"],
+  "exclude": ["node_modules", "dist", ".js-emit-api"]
+}

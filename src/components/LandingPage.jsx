@@ -1,0 +1,383 @@
+import React from 'react';
+import { motion } from 'motion/react';
+import { Sun, Moon, Mail, ShieldCheck, Zap, Layers, Globe, Lock, Smartphone, ChevronRight, ArrowRight, CheckCircle2, Sparkles, MessageSquare, Layout, Inbox, Send, FileText, Trash2, Clock } from 'lucide-react';
+import { cn } from '../lib/utils';
+import { Logo } from './Logo';
+export default function LandingPage({ onGetStarted, onShowPrivacy, isDarkMode, onToggleTheme }) {
+    return (<div className="scroll-smooth min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-200 selection:bg-blue-500/30 overflow-x-hidden transition-colors duration-300">
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 dark:border-slate-800/50 bg-white/50 dark:bg-slate-950/50 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative w-11 h-11 bg-slate-900 dark:bg-white/5 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 group cursor-pointer overflow-hidden border border-slate-200 dark:border-white/10 hover:scale-105 transition-all">
+              <Logo className="w-8 h-8"/>
+            </div>
+            <span className="font-display text-2xl tracking-tight text-slate-900 dark:text-white uppercase">GNmail</span>
+          </div>
+
+          <div className="hidden md:flex items-center gap-8">
+            <NavLink href="#features">Features</NavLink>
+            <NavLink href="#security">Security</NavLink>
+            <NavLink href="#ai">AI Tools</NavLink>
+            <NavLink href="#android">Android</NavLink>
+          </div>
+
+          <div className="flex items-center gap-1 sm:gap-3">
+            <button onClick={onToggleTheme} className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"} aria-label={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}>
+              {isDarkMode ? <Sun size={20}/> : <Moon size={20}/>}
+            </button>
+            <button onClick={() => onGetStarted('login')} className="px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
+              Login
+            </button>
+            <button onClick={() => onGetStarted('register')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 sm:px-6 rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2 text-sm sm:text-base">
+              Get Started
+              <ChevronRight size={18}/>
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative pt-40 pb-20 px-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto text-center relative z-10">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+            <div className="flex justify-center mb-10">
+              <div className="w-32 h-32 p-1 rounded-[2.5rem] bg-slate-950 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center shadow-xl">
+                <Logo className="w-20 h-20"/>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-8">
+              <ShieldCheck size={14}/>
+              Private mail by Gazneftgroup
+            </span>
+            <h1 className="text-6xl md:text-8xl font-display text-slate-900 dark:text-white mb-4 tracking-tight leading-[0.9] uppercase">
+              GN<span className="text-blue-600 dark:text-blue-500">mail.</span>
+            </h1>
+            <div className="max-w-xl mx-auto mb-12">
+              <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                All your accounts in one encrypted inbox, on the web and on Android.
+                Fast to read, safe to share, no ads and no tracking.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button onClick={() => onGetStarted('register')} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-2xl transition-all shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2 text-lg">
+                Start for Free
+                <ArrowRight size={20}/>
+              </button>
+              <a href="#preview" className="w-full sm:w-auto bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-900 dark:text-white font-bold py-4 px-10 rounded-2xl transition-all border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 text-lg">
+                See the inbox
+              </a>
+            </div>
+          </motion.div>
+
+          {/* App Preview Mockup */}
+          <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="mt-24 relative max-w-6xl mx-auto">
+            <div id="preview" className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-2 shadow-2xl overflow-hidden aspect-[16/10] scroll-mt-28">
+              <div className="bg-white dark:bg-slate-950 rounded-2xl w-full h-full border border-slate-200 dark:border-slate-800/50 flex overflow-hidden">
+                {/* Mock Sidebar */}
+                <div className="w-1/4 border-r border-slate-200 dark:border-slate-800 p-4 space-y-4 hidden sm:block bg-slate-50 dark:bg-slate-950/50">
+                  <div className="flex items-center gap-2 mb-8">
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg"/>
+                    <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-20"/>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+            { icon: <Inbox size={14}/>, label: "Inbox", active: true },
+            { icon: <Send size={14}/>, label: "Sent" },
+            { icon: <FileText size={14}/>, label: "Drafts" },
+            { icon: <Trash2 size={14}/>, label: "Trash" }
+        ].map((item, i) => (<div key={i} className={cn("flex items-center gap-3 p-2 rounded-lg", item.active ? "bg-blue-600/10 text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-500")}>
+                        {item.icon}
+                        <div className={cn("h-3 rounded w-16", item.active ? "bg-blue-400/20" : "bg-slate-200 dark:bg-slate-800/50")}/>
+                      </div>))}
+                  </div>
+                </div>
+                {/* Mock Content */}
+                <div className="flex-1 flex flex-col">
+                  <div className="h-16 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between">
+                    <div className="h-8 bg-slate-100 dark:bg-slate-900 rounded-xl w-1/3"/>
+                    <div className="flex gap-2">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-900"/>
+                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-900"/>
+                    </div>
+                  </div>
+                  <div className="flex-1 p-4 space-y-3 overflow-hidden">
+                    {[
+            { from: "Sarah Miller", subject: "Project Update - Q2 Goals", time: "10:24 AM", unread: true },
+            { from: "GitHub", subject: "[Security] Alert for repository...", time: "9:15 AM" },
+            { from: "Stripe", subject: "Your weekly payout is on its way", time: "Yesterday" },
+            { from: "Framer", subject: "New features are here!", time: "Apr 7" },
+            { from: "Slack", subject: "You have 3 unread messages", time: "Apr 6" }
+        ].map((mail, i) => (<div key={i} className={cn("p-4 rounded-xl border flex items-center justify-between group transition-all", mail.unread ? "bg-blue-600/5 border-blue-500/20" : "bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800/30")}>
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className={cn("w-2 h-2 rounded-full", mail.unread ? "bg-blue-500" : "bg-transparent")}/>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={cn("text-xs font-bold", mail.unread ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400")}>{mail.from}</span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-600">{mail.time}</span>
+                            </div>
+                            <p className={cn("text-xs truncate", mail.unread ? "text-slate-700 dark:text-slate-200" : "text-slate-400 dark:text-slate-500")}>{mail.subject}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="w-6 h-6 rounded bg-slate-200 dark:bg-slate-800 flex items-center justify-center"><Clock size={10} className="text-slate-400 dark:text-slate-500"/></div>
+                          <div className="w-6 h-6 rounded bg-slate-200 dark:bg-slate-800 flex items-center justify-center"><Trash2 size={10} className="text-slate-400 dark:text-slate-500"/></div>
+                        </div>
+                      </div>))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section id="features" className="py-32 px-6 bg-white dark:bg-slate-950 relative scroll-mt-20">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-display text-slate-900 dark:text-white mb-6 uppercase leading-[0.95]">Everything you need <br />to manage your mail.</h2>
+            <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto font-medium">One inbox, all your accounts. No more switching tabs or losing track of important conversations.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard icon={<Layers className="text-blue-500"/>} title="Multi-Account Sync" description="Connect Gmail, Outlook and any IMAP/SMTP mailbox. Read and reply to all of them from one inbox."/>
+            <FeatureCard icon={<Zap className="text-blue-500"/>} title="Instant Deliverability" description="AI-powered spam analysis ensures your emails land in the inbox, not the junk folder."/>
+            <FeatureCard icon={<Sparkles className="text-blue-500"/>} title="Smart AI Tools" description="Summarize long threads and generate professional replies in seconds with Gemini AI."/>
+            <FeatureCard icon={<ShieldCheck className="text-blue-500"/>} title="Encrypted Sharing" description="Share a draft with a six-digit PIN. It is encrypted on your device with AES-256 and only the PIN can open it."/>
+            <FeatureCard icon={<MessageSquare className="text-blue-500"/>} title="Rich Text Editor" description="Compose beautiful emails with our built-in visual editor or raw HTML source mode."/>
+            <FeatureCard icon={<Layout className="text-blue-500"/>} title="Web and Android" description="The same inbox on your desktop and in your pocket. Mail is cached on the phone so it opens offline."/>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Section */}
+      <section id="ai" className="py-32 px-6 bg-white dark:bg-slate-950 relative overflow-hidden scroll-mt-20">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row-reverse items-center gap-16">
+          <div className="flex-1">
+            <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-8 border border-blue-500/20">
+              <Sparkles className="text-blue-500 w-8 h-8"/>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-display text-slate-900 dark:text-white mb-8 leading-[0.95] uppercase">AI-Powered <br />Intelligence.</h2>
+            <p className="text-slate-600 dark:text-slate-400 text-lg mb-8 font-medium">
+              Harness the power of Gemini AI to transform how you handle email. Summarize long threads, detect priorities, and generate professional replies in seconds.
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"/>
+                <span>Smart Thread Summarization</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"/>
+                <span>Context-Aware Smart Replies</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"/>
+                <span>Automated Priority Detection</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 w-full">
+            <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl relative">
+              <div className="relative bg-white dark:bg-slate-950 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-3 mb-6 border-b border-slate-200 dark:border-slate-800 pb-4">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <Sparkles size={14} className="text-blue-500"/>
+                  </div>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Gemini AI Assistant</span>
+                </div>
+                <div className="space-y-4">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800/50">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-2 uppercase font-bold tracking-widest">Summary</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed italic">
+                      "This thread discusses the Q3 project timeline. The team has agreed on the October 15th launch date, but needs final approval on the marketing budget by Friday."
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="px-3 py-1.5 bg-blue-600/10 text-blue-600 dark:text-blue-400 rounded-full text-[10px] font-bold uppercase border border-blue-500/20">Sounds good!</div>
+                    <div className="px-3 py-1.5 bg-slate-500/10 text-slate-600 dark:text-slate-400 rounded-full text-[10px] font-bold uppercase border border-slate-500/20">I'll check the budget</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Security Section */}
+      <section id="security" className="py-32 px-6 bg-slate-50 dark:bg-slate-900/30 border-y border-slate-200 dark:border-slate-800/50 scroll-mt-20">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16">
+          <div className="flex-1">
+            <div className="w-16 h-16 bg-green-500/10 rounded-2xl flex items-center justify-center mb-8 border border-green-500/20">
+              <Lock className="text-green-500 w-8 h-8"/>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-display text-slate-900 dark:text-white mb-8 leading-[0.95] uppercase">Privacy is not <br />an option.</h2>
+            <div className="space-y-6">
+              <SecurityItem title="Zero-Knowledge Architecture" description="We don't store your passwords. OAuth tokens are encrypted and handled securely."/>
+              <SecurityItem title="No Data Mining" description="Unlike free providers, we never scan your emails for advertising or tracking purposes."/>
+              <SecurityItem title="Advanced Encryption" description="All data in transit and at rest is protected by industry-standard AES-256 encryption."/>
+            </div>
+          </div>
+          <div className="flex-1 relative">
+            <div className="relative bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-2xl">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-green-500"/>
+                    <span className="text-sm font-medium text-slate-900 dark:text-white">SSL/TLS Encryption</span>
+                  </div>
+                  <CheckCircle2 size={18} className="text-green-500"/>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-green-500"/>
+                    <span className="text-sm font-medium text-slate-900 dark:text-white">OAuth 2.0 Protocol</span>
+                  </div>
+                  <CheckCircle2 size={18} className="text-green-500"/>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-green-500"/>
+                    <span className="text-sm font-medium text-slate-900 dark:text-white">DMARC/SPF/DKIM Compliance</span>
+                  </div>
+                  <CheckCircle2 size={18} className="text-green-500"/>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Android Section */}
+      <section id="android" className="py-32 px-6 bg-white dark:bg-slate-950 relative overflow-hidden scroll-mt-20">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16">
+          <div className="flex-1">
+            <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-8 border border-blue-500/20">
+              <Smartphone className="text-blue-500 w-8 h-8"/>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-display text-slate-900 dark:text-white mb-8 leading-[0.95] uppercase">Also on <br />Android.</h2>
+            <p className="text-slate-600 dark:text-slate-400 text-lg mb-8 font-medium">
+              Sign in with the same GNmail account and your connected mailboxes are already there. Nothing to set up twice.
+            </p>
+            <div className="space-y-4 mb-10">
+              {[
+            "Inbox cached on the phone, so it opens with no signal",
+            "Push notification when new mail arrives",
+            "Open PIN-protected drafts shared from the web",
+        ].map((line) => (<div key={line} className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500"/>
+                  <span>{line}</span>
+                </div>))}
+            </div>
+            <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Coming to Google Play. Early builds are available to Gazneftgroup teams.</p>
+          </div>
+          <div className="flex-1 w-full flex justify-center">
+            <div className="w-[280px] rounded-[2.5rem] border-[6px] border-slate-900 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 shadow-2xl shadow-blue-600/20 p-5 pt-10 relative">
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 w-20 h-1.5 rounded-full bg-slate-900 dark:bg-slate-700"/>
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 text-center">
+                <div className="mx-auto w-16 h-16 rounded-2xl bg-slate-950 border border-white/10 flex items-center justify-center mb-5">
+                  <Logo className="w-10 h-10"/>
+                </div>
+                <p className="font-display text-2xl uppercase text-slate-900 dark:text-white leading-none mb-1">Welcome back</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Sign in to your GNmail workspace.</p>
+                <div className="text-left space-y-3">
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">Email address</p>
+                    <div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border-2 border-blue-500/60 flex items-center px-3 gap-2">
+                      <Mail size={12} className="text-slate-500"/>
+                      <div className="h-2.5 w-28 rounded bg-slate-300 dark:bg-slate-600"/>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-1">Password</p>
+                    <div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center px-3 gap-2">
+                      <Lock size={12} className="text-slate-500"/>
+                      <div className="h-2.5 w-16 rounded bg-slate-300 dark:bg-slate-600"/>
+                    </div>
+                  </div>
+                  <div className="h-11 rounded-xl bg-blue-600 flex items-center justify-center text-white text-sm font-bold">Sign in</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-32 px-6 text-center relative overflow-hidden bg-white dark:bg-slate-950">
+        <div className="max-w-3xl mx-auto relative z-10">
+          <h2 className="text-4xl md:text-6xl font-display text-slate-900 dark:text-white mb-8 leading-[0.9] uppercase">Ready to <br />upgrade?</h2>
+          <p className="text-lg text-slate-600 dark:text-slate-400 mb-12 leading-relaxed font-medium">Built for Gazneftgroup teams and for anyone who wants their mail private, fast and in one place.</p>
+          <button onClick={() => onGetStarted('register')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-5 px-12 rounded-2xl transition-all shadow-2xl shadow-blue-600/30 text-xl">
+            Get Started Now
+          </button>
+          <p className="mt-6 text-sm text-slate-400 dark:text-slate-500">Sign up with an email address. No card needed.</p>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-20 px-6 border-t border-slate-200 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-950">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+          <div className="col-span-1 md:col-span-2">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 bg-slate-950 border border-white/10 rounded-lg flex items-center justify-center">
+                <Logo className="w-5 h-5"/>
+              </div>
+              <span className="font-display text-xl text-slate-900 dark:text-white uppercase tracking-tight">GNmail</span>
+            </div>
+            <p className="text-slate-500 dark:text-slate-500 max-w-sm">Private mail by Gazneftgroup. One encrypted inbox for every account, on the web and on Android.</p>
+          </div>
+          <div>
+            <h4 className="text-slate-900 dark:text-white font-bold mb-6">Product</h4>
+            <ul className="space-y-4 text-sm text-slate-500">
+              <li><a href="#features" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Features</a></li>
+              <li><a href="#security" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Security</a></li>
+              <li><a href="#ai" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">AI Tools</a></li>
+              <li><a href="#android" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">Android app</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-slate-900 dark:text-white font-bold mb-6">Company</h4>
+            <ul className="space-y-4 text-sm text-slate-500">
+              <li>
+                <a href="/?page=privacy" onClick={(e) => { e.preventDefault(); onShowPrivacy(); }} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left font-semibold text-blue-600 dark:text-blue-500 underline decoration-2 underline-offset-4">
+                  Privacy Policy
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-slate-200 dark:border-slate-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-slate-400 dark:text-slate-600">© 2026 Gazneftgroup. All rights reserved.</p>
+          <div className="flex items-center gap-6">
+            <Globe size={16} className="text-slate-400 dark:text-slate-600"/>
+            <span className="text-xs text-slate-400 dark:text-slate-600">English (US)</span>
+          </div>
+        </div>
+      </footer>
+    </div>);
+}
+function NavLink({ href, children }) {
+    return (<a href={href} className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+      {children}
+    </a>);
+}
+function FeatureCard({ icon, title, description }) {
+    return (<div className="p-8 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl hover:border-blue-500/50 transition-all group">
+      <div className="w-12 h-12 bg-white dark:bg-slate-950 rounded-2xl flex items-center justify-center mb-6 border border-slate-200 dark:border-slate-800 group-hover:scale-110 transition-transform">
+        {icon}
+      </div>
+      <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{title}</h3>
+      <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">{description}</p>
+    </div>);
+}
+function SecurityItem({ title, description }) {
+    return (<div className="flex gap-4">
+      <div className="mt-1"><CheckCircle2 size={20} className="text-blue-600 dark:text-blue-500"/></div>
+      <div>
+        <h4 className="text-slate-900 dark:text-white font-bold mb-1">{title}</h4>
+        <p className="text-slate-600 dark:text-slate-400 text-sm">{description}</p>
+      </div>
+    </div>);
+}

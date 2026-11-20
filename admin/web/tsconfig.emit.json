@@ -1,0 +1,18 @@
+{
+  // TEMPORARY one-shot config: strip types from the admin web app. Deleted after the emit.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "outDir": ".js-emit-web",
+    "rootDir": ".",
+    "skipLibCheck": true,
+    "declaration": false,
+    "sourceMap": false,
+    "noEmitOnError": false
+  },
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", ".js-emit-web"]
+}
